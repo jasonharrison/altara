@@ -1,0 +1,6 @@
+networkIP = "1.2.3.4"
+servername = "server."
+serverdescription = "Altara IRC services"
+linkport = 1234
+linkpass = "secure"
+sid = "31D"
