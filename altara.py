@@ -1,35 +1,42 @@
-import time
-from time import sleep
-import random,string,socket,re
-try:
-	import config
-except:
-	print "Please edit config.py.dist, then rename it to config.py and try launching altara services again."
+import asynchat,asyncore,socket,time
 
-
-def srvsend(data):
-	print "Send: "+repr(data)
-	irc.send(data+"\r\n")
-
-tmp1=0
-queue = '' # set once.
-irc = socket.socket ( socket.AF_INET, socket.SOCK_STREAM )
-irc.connect ( ( config.netw.orkIP, config.linkport ) )
-while True:
-	tmp = irc.recv(1024)
-	if tmp == '': close()
-	queue = queue + tmp
-	for item in queue.split('\r\n'):
-		if not item.endswith('\r\n'):
-		  if item != '':
-			queue = queue[len(item)+2:]
-			print "Recv: "+repr(item)
-			splitmsg = str(item).split(" ")
-			#handle_data.handle(irc,str(item))
-			if "NOTICE * :*** Found your hostname" in item and tmp1 != 1:
-				tmp1=1
-				srvsend("PASS "+config.linkpass+" TS 6 "+config.sid)
-				srvsend("CAPAB :QS EX IE KLN UNKLN ENCAP TB SERVICES EUID EOPMOD")
-				srvsend("SERVER "+config.servername+" 1 :"+config.serverdescription)
-			if newmsg[0] == "PING":
-				srvsend("PONG "+newmsg[1])
+class asynchat_bot(asynchat.async_chat):
+	def __init__(self, host, port):
+		asynchat.async_chat.__init__(self)
+		self.create_socket(socket.AF_INET,socket.SOCK_STREAM)
+		self.set_terminator('\r\n')
+		self.data=''
+		self.remote=(host,port)
+		self.connect(self.remote)
+	
+	def handle_connect(self):
+		def srvsend(data):
+			print "Send: "+data
+			self.push(data+"\r\n")
+		srvsend("PASS "+config.linkpass+" TS 6 "+config.sid)
+		srvsend("CAPAB :QS EX IE KLN UNKLN ENCAP TB SERVICES EUID EOPMOD")
+		srvsend("SERVER "+config.servername+" 1 :"+config.serverdescription)
+	
+	def get_data(self):
+		r=self.data
+		self.data=''
+		return r
+	def collect_incoming_data(self, data):
+		self.data+=data
+	def found_terminator(self):
+		def srvsend(data):
+			print "Send: "+data
+			self.push(data+"\r\n")
+		data=self.get_data()
+		split = str(data).split(" ")
+		print "Recv: "+data
+		if split[0] == "PING":
+			srvsend("PONG "+split[1])
+if __name__ == '__main__':
+	try:
+		import config
+	except:
+		print "Please edit config.py.dist.  After you're done, rename it to config.py and try launching altara services again."
+		exit()
+	asynchat_bot(config.networkIP,config.linkport)
+	asyncore.loop()
