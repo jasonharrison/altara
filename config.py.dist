@@ -1,6 +1,9 @@
+#Feel free to use any python in here.
+
 networkIP = "1.2.3.4"
 servername = "server."
 serverdescription = "Altara IRC services"
 linkport = 1234
 linkpass = "secure"
 sid = "31D"
+modules=["module1","module2","module3","module4"] #TODO
