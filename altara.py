@@ -14,15 +14,13 @@ class altara_socket(asynchat.async_chat):
 		self.remote=(host,port)
 		self.connect(self.remote)
 	
-	def send(data):
-		print "Send: "+data
-		self.push(data+"\r\n")
-	
+	def sendLine(self,data):
+		print "Send "+str(data)
+		self.push(data+'\r\n')
 	def handle_connect(self):
-		self.send("PASS "+config.linkpass+" TS 6 "+config.sid)
-		self.send("CAPAB :QS EX IE KLN UNKLN ENCAP TB SERVICES EUID EOPMOD")
-		self.send("SERVER "+config.servername+" 1 :"+config.serverdescription)
-	
+		self.sendLine("PASS "+str(config.linkpass)+" TS 6 "+str(config.sid)+"\r\n")
+		self.sendLine("CAPAB :QS EX IE KLN UNKLN ENCAP TB SERVICES EUID EOPMOD\r\n")
+		self.sendLine("SERVER "+str(config.servername)+" 1 :"+str(config.serverdescription)+"\r\n")
 	def get_data(self):
 		r=self.data
 		self.data=''
@@ -34,11 +32,9 @@ class altara_socket(asynchat.async_chat):
 	def found_terminator(self):
 		data=self.get_data()
 		split = str(data).split(" ")
-		
 		print "Recv: "+data
-		
 		if split[0] == "PING":
-			self.send("PONG "+split[1])
+			self.sendLine("PONG "+split[1])
 
 if __name__ == '__main__':
 	if config is None:
