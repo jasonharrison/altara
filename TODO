@@ -1,13 +1,14 @@
 X = done, ? = Needs discussion, / = in progress.
 
 [ ] End of burst detection
-[ ] Write config parser (ConfigParser?)
+[/] Write config parser (ConfigParser?)
     [ ] Reload from IRC, without errors in config causing services to crash.
 [ ] Uplink
-    [ ] Write socket code to use asyncore, or some other similar event based library.
+    [/] Write socket code to use asyncore, or some other similar event based library.
     [ ] Multiple uplink support
     [?] SSL?
     [ ] IPv6
+[/] Keep user data in a dict or sqlite database (:memory:?)
 [ ] Easy to use/rich API
 [ ] Extremely modular base
     [ ] Hooks?
