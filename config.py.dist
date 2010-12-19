@@ -6,4 +6,3 @@ serverdescription = "Altara IRC services"
 linkport = 1234
 linkpass = "secure"
 sid = "31D"
-modules=["module1","module2","module3","module4"] #TODO
