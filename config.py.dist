@@ -6,3 +6,9 @@ serverdescription = "Altara IRC services"
 linkport = 1234
 linkpass = "secure"
 sid = "31D"
+#TS6 Client settings
+clientnick = "gatekeeper"
+clienthostname = "gatekeeper."
+clientgecos = "gatekeeper"
+clientuser = "gatekeeper"
+reportchan = "#services"

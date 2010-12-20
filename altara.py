@@ -22,7 +22,10 @@ class altara_socket(asynchat.async_chat):
 		self.remote=(host,port)
 		self.connect(self.remote)
 		self.firstSync = 1
-	
+		self.modules = {}
+	def load(self,modname):
+		self.modules[modname] = __import__(modname)
+		return self.modules[modname] #Do we even need to return?
 	def sendLine(self,data):
 		print "Send "+str(data)
 		self.push(data+'\r\n')
@@ -34,7 +37,7 @@ class altara_socket(asynchat.async_chat):
 		#bring in a client
 		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
 		self.sendLine(':'+str(config.sid)+' EUID '+config.clientnick+' 0 '+str(time.time())+' +i '+config.clientuser+' '+config.clienthostname+' 0.0.0.0 '+str(config.sid)+'AAAAAB 0.0.0.0 0 :'+config.clientgecos) 
-		self.sendLine(':31DAAAAAB JOIN %d #altara +' % int(time.time()))
+		self.sendLine(':'+config.sid+'AAAAAB JOIN '+str(time.time())+' '+config.reportchan+' +')
 		self.startSyncTS = time.time()
 
 	def get_data(self):
@@ -44,7 +47,10 @@ class altara_socket(asynchat.async_chat):
 	
 	def collect_incoming_data(self, data):
 		self.data+=data
-
+	#START API
+	def commandFail(self,error):
+		self.sendLine("NOTICE "+config.reportchan+" :ERROR: "+error)
+	#END API
 	def found_terminator(self):
 		data=self.get_data()
 		split = str(data).split(" ")
@@ -80,7 +86,18 @@ class altara_socket(asynchat.async_chat):
 			host = uidstore[uid]['host']
 			account = uidstore[uid]['account']
 			realhost = uidstore[uid]['realhost']
-			altaramodule.onPrivmsg(self,uid,nick,host,realhost,account,message)
+			splitm = message.split(" ")
+			if splitm[0] == "modload": #TODO: only ircops can use this feature
+				try:
+					modtoload = splitm[1]
+					self.load(modtoload)
+				except Exception,e:
+					self.commandFail(str(e))
+			for modname,module in self.modules.items():
+				self.sendLine("notice #altara :Module is "+str(module))
+				module.onPrivmsg(self,uid,nick,host,realhost,account,message)
+			    #do other functions here!
+			#altaramodule.onPrivmsg(self,uid,nick,host,realhost,account,message) #temp
 			#self.sendLine('NOTICE #altara :'+str(self.uidtonick(split[0].replace(":",""))))
 			#self.sendLine("NOTICE #altara :"+str(nick))
 
