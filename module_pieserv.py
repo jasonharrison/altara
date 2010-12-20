@@ -1,5 +1,5 @@
 def modinit(self):
-	self.pieserv = self.createClient("PieServ","PieServ","services.")
+	self.pieserv = self.createClient("PieServ","PieServ","services.","PieServ!")
 #def onPrivmsg(self,uid,nick,host,realhost,account,message):
 def onPrivmsg(self,uid,target,message):
 	if target == self.pieserv:

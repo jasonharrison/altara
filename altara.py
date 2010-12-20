@@ -29,7 +29,7 @@ class altara_socket(asynchat.async_chat):
 		self.sendLine("CAPAB :QS EX IE KLN UNKLN ENCAP TB SERVICES EUID EOPMOD")
 		self.sendLine("SERVER "+str(config.servername)+" 1 :"+str(config.serverdescription))
 		#Create a client
-		self.createClient('gatekeeper','gatekeeper','gatekeeper.')
+		self.createClient(config.clientnick,config.clientuser,config.clienthostname,config.clientgecos)
 		self.startSyncTS = time.time()
 
 	def get_data(self):
@@ -45,11 +45,11 @@ class altara_socket(asynchat.async_chat):
 	def sendLine(self,data):
 		print "Send: "+str(data)
 		self.push(data+'\r\n')
-	def createClient(self,cnick,cuser,chost):
+	def createClient(self,cnick,cuser,chost,cgecos):
 		self.suid+=1
 		cuid = str(config.sid)+str(self.suid)
 		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
-		self.sendLine(':'+str(config.sid)+' EUID '+cnick+' 0 '+str(time.time())+' +i '+cuser+' '+chost+' 0.0.0.0 '+cuid+' 0.0.0.0 0 :'+config.clientgecos) 
+		self.sendLine(':'+str(config.sid)+' EUID '+cnick+' 0 '+str(time.time())+' +i '+cuser+' '+chost+' 0.0.0.0 '+cuid+' 0.0.0.0 0 :'+cgecos) 
 		self.sendLine(':'+cuid+' JOIN '+str(time.time())+' '+config.reportchan+' +')
 		self.sendLine("MODE "+config.reportchan+" +o "+cuid)
 		self.createdClients[cnick] = {'uid': cuid}
