@@ -51,6 +51,8 @@ class altara_socket(asynchat.async_chat):
 		self.sendLine(':'+cuid+' JOIN '+str(time.time())+' '+config.reportchan+' +')
 		self.sendLine("MODE "+config.reportchan+" +o "+cuid)
 		return cuid
+	def destroyClient(self,cuid,reason):
+		self.sendLine(":"+cuid+" QUIT :"+reason)
 	def sendPrivmsg(self,sender,target,message):
 		self.sendLine(":"+sender+" PRIVMSG "+target+" :"+message)
 	def sendNotice(self,sender,target,message):
@@ -59,7 +61,7 @@ class altara_socket(asynchat.async_chat):
 		self.modules[modname] = __import__(modname)
 		return self.modules[modname]
 	def modunload(self,modname):
-		#TODO
+		self.modules["module_"+modname].moddeinit(self)
 		del self.modules["module_"+modname]
 	#END API
 	def found_terminator(self):
@@ -170,7 +172,15 @@ class altara_socket(asynchat.async_chat):
 					self.modunload(modname)
 				except Exception,e:
 					self.sendLine("NOTICE "+config.reportchan+" :ERROR: "+(str(e)))
-				
+			elif splitm[0].lower() == "modreload":
+				try:
+					modname = splitm[1]
+					self.modunload(modname)
+					module = self.load("module_"+modname)
+					module.modinit(self)
+				except Exception,e:
+					self.sendLine("NOTICE "+config.reportchan+" :ERROR: "+(str(e)))
+			
 				#self.sendLine("NOTICE #altara :Modules: "+str(self.modules.items()))
 			elif splitm[0] == "info":
 				self.sendLine("NOTICE #altara :Info about you: NICK1 "+self.nickstore['bikcmp']['uid']+" NICK "+nick+"!"+user+"@"+host+" realhost "+realhost+" opered = "+str(oper)+" account = "+account)
