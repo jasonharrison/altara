@@ -4,7 +4,6 @@ try:
 	import config
 except ImportError:
 	config = None
-import altaramodule
 
 
 class altara_socket(asynchat.async_chat):
@@ -21,9 +20,7 @@ class altara_socket(asynchat.async_chat):
 	def load(self,modname):
 		self.modules[modname] = __import__(modname)
 		return self.modules[modname] #Do we even need to return?
-	def sendLine(self,data):
-		print "Send "+str(data)
-		self.push(data+'\r\n')
+
 	def handle_connect(self):
 		#introduce server
 		self.sendLine("PASS "+str(config.linkpass)+" TS 6 "+str(config.sid))
@@ -42,7 +39,12 @@ class altara_socket(asynchat.async_chat):
 	
 	def collect_incoming_data(self, data):
 		self.data+=data
+	def handle_error(self):
+		raise
 	#START API
+	def sendLine(self,data):
+		print "Send: "+str(data)
+		self.push(data+'\r\n')
 	#END API
 	def found_terminator(self):
 		data=self.get_data()
@@ -55,7 +57,8 @@ class altara_socket(asynchat.async_chat):
 				self.sendLine("WALLOPS :Synced with network in "+str(synctime)+" seconds.")
 				self.firstSync = 0
 		elif split[1] == "EUID":
-			##Recv: :05K EUID jason 3 1292805989 +i ~jason nat/bikcmp.com/session 0 05KAAANCY * * :Jason
+			#Recv: :05K EUID jason 3 1292805989 +i ~jason nat/bikcmp.com/session 0 05KAAANCY * * :Jason
+			#Note: could use some cleanup here.
 			modes = split[5]
 			nick = split[2]
 			user = split[6]
@@ -73,6 +76,12 @@ class altara_socket(asynchat.async_chat):
 				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': True, 'modes': modes}
 			else:
 				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': False, 'modes': modes}
+			print str(self.modules.items())
+			for modname,module in self.modules.items():
+				print '2'
+				print dir(module)
+				if hasattr(module, "onConnect"):
+					module.onConnect(self,uid)
 		elif split[1] == "ENCAP":
 			if split[3] == "OPER":
 				uid = split[0].replace(":","")
@@ -88,9 +97,15 @@ class altara_socket(asynchat.async_chat):
 			uid = split[2]
 			newhost = split[3]
 			self.uidstore[uid]['host'] = split[3]
+			for modname,module in self.modules.items():
+				if hasattr(module, "onChghost"):
+					module.onChghost(self,uid,newhost)
 		elif split[1] == "QUIT":
 			uid = split[0].replace(":","")
 			del self.uidstore[uid]
+			for modname,module in self.modules.items():
+				if hasattr(module, "onQuit"):
+					module.onQuit(self,uid)
 		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
 		elif split[1] == "PRIVMSG":
 			target = split[2]
@@ -107,12 +122,17 @@ class altara_socket(asynchat.async_chat):
 				try:
 					modtoload = splitm[1]
 					self.load(modtoload)
+					#print '1'
+					#module = getattr(__import__(modtoload), modtoload.split('.',1)[1])
+					#print dir(module)
+					self.sendLine("NOTICE "+config.reportchan+" :Loading "+str(modtoload)+" (requested by "+nick+"!"+user+"@"+host+")")
 				except Exception,e:
 					self.sendLine("NOTICE "+config.reportchan+" :ERROR: "+(str(e)))
 			elif splitm[0] == "info":
 				self.sendLine("NOTICE #altara :Info about you: "+nick+"!"+user+"@"+host+" realhost "+realhost+" opered = "+str(oper)+" account = "+account)
 			for modname,module in self.modules.items():
-				module.onPrivmsg(self,uid,nick,host,realhost,account,message)
+				if hasattr(module, "onPrivmsg"):
+					module.onPrivmsg(self,target,uid,nick,host,realhost,account,message)
 			    #do other functions here!
 			
 
