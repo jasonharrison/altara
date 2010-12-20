@@ -17,11 +17,9 @@ class altara_socket(asynchat.async_chat):
 		self.firstSync = 1
 		self.modules = {}
 		self.uidstore = {} #Create dictionary.
-		self.createdClients = {} #Create another dictionary for clients that altara makes.
+		self.nickstore = {}
 		self.suid = 100000
-	def load(self,modname):
-		self.modules[modname] = __import__(modname)
-		return self.modules[modname]
+		self.altaraversion = "Altara 0.01-git [TS6]"
 
 	def handle_connect(self):
 		#introduce server
@@ -52,14 +50,17 @@ class altara_socket(asynchat.async_chat):
 		self.sendLine(':'+str(config.sid)+' EUID '+cnick+' 0 '+str(time.time())+' +i '+cuser+' '+chost+' 0.0.0.0 '+cuid+' 0.0.0.0 0 :'+cgecos) 
 		self.sendLine(':'+cuid+' JOIN '+str(time.time())+' '+config.reportchan+' +')
 		self.sendLine("MODE "+config.reportchan+" +o "+cuid)
-		self.createdClients[cnick] = {'uid': cuid}
 		return cuid
-	def suidtoNick(self,nick):
-		return self.createdClients[nick]['uid']
 	def sendPrivmsg(self,sender,target,message):
 		self.sendLine(":"+sender+" PRIVMSG "+target+" :"+message)
 	def sendNotice(self,sender,target,message):
 		self.sendLine(":"+sender+" NOTICE "+target+" :"+message)
+	def load(self,modname):
+		self.modules[modname] = __import__(modname)
+		return self.modules[modname]
+	def modunload(self,modname):
+		#TODO
+		del self.modules["module_"+modname]
 	#END API
 	def found_terminator(self):
 		data=self.get_data()
@@ -69,7 +70,8 @@ class altara_socket(asynchat.async_chat):
 			self.sendLine("PONG "+split[1])
 			if self.firstSync == 1:
 				synctime = float(time.time()) - float(self.startSyncTS)
-				self.sendLine("WALLOPS :Synced with network in "+str(synctime)+" seconds.")
+				#self.sendLine("WALLOPS :Synced with network in "+str(synctime)+" seconds.")
+				self.sendLine("NOTICE #altara :Synced with network in "+str(synctime)+" seconds.")
 				self.firstSync = 0
 		elif split[1] == "EUID":
 			#Recv: :05K EUID jason 3 1292805989 +i ~jason nat/bikcmp.com/session 0 05KAAANCY * * :Jason
@@ -87,6 +89,7 @@ class altara_socket(asynchat.async_chat):
 			account = split[11]
 			if account == "*":
 				account = "None"
+			self.nickstore[nick] = {'uid': uid}
 			if "o" in modes:
 				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': True, 'modes': modes}
 			else:
@@ -143,6 +146,11 @@ class altara_socket(asynchat.async_chat):
 			realhost = self.uidstore[uid]['realhost']
 			oper = self.uidstore[uid]['oper']
 			splitm = message.split(" ")
+			#CTCP version replies
+			if target[0] != "#":
+				if "\x01VERSION" in message:
+					self.sendLine(":"+target+" NOTICE "+uid+" :\x01VERSION "+self.altaraversion+"\x01")
+			
 			if splitm[0].lower() == "modload": #TODO: only ircops can use this feature
 				try:
 					modtoload = splitm[1]
@@ -152,8 +160,20 @@ class altara_socket(asynchat.async_chat):
 				except Exception,e:
 					self.sendLine("NOTICE "+config.reportchan+" :ERROR: "+(str(e)))
 				#TODO: Reload/unload
+			elif splitm[0].lower() == "modlist":
+				#modname = splitm[1]
+				#del self.modules[modname]
+				self.sendLine("NOTICE #altara :Modules: "+str(self.modules.keys()))
+			elif splitm[0].lower() == "modunload":
+				try:
+					modname = splitm[1]
+					self.modunload(modname)
+				except Exception,e:
+					self.sendLine("NOTICE "+config.reportchan+" :ERROR: "+(str(e)))
+				
+				#self.sendLine("NOTICE #altara :Modules: "+str(self.modules.items()))
 			elif splitm[0] == "info":
-				self.sendLine("NOTICE #altara :Info about you: "+nick+"!"+user+"@"+host+" realhost "+realhost+" opered = "+str(oper)+" account = "+account)
+				self.sendLine("NOTICE #altara :Info about you: NICK1 "+self.nickstore['bikcmp']['uid']+" NICK "+nick+"!"+user+"@"+host+" realhost "+realhost+" opered = "+str(oper)+" account = "+account)
 			for modname,module in self.modules.items():
 				if hasattr(module, "onPrivmsg"):
 					#module.onPrivmsg(self,target,uid,nick,host,realhost,account,message)
