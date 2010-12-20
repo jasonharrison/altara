@@ -103,6 +103,9 @@ class altara_socket(asynchat.async_chat):
 					uid = split[4]
 					newaccount = split[5].replace(":","")
 					self.uidstore[uid]['account'] = newaccount
+					for modname,module in self.modules.items():
+						if hasattr(module, "onLogin"):
+							module.onLogin(self,uid,oldhost,newhost)
 				except:
 					pass
 		elif split[1] == "CHGHOST":
