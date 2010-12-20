@@ -4,13 +4,8 @@ try:
 	import config
 except ImportError:
 	config = None
-import sqlite3 as sqlite
-#~ connection = sqlite.connect(':memory:')
-#~ cursor = connection.cursor()
-#~ cursor.execute("create table if not exists users (uid,nick,user,host,account,ip,realhost)")
-#~ connection.commit()  #Let's try a dict. 
 import altaramodule
-#05CAAA5J7|noidea`|~noidea`|cpe-098-026-094-124.nc.res.rr.com|*|~noidea`|cpe-098-026-094-124.nc.res.rr.com
+
 
 class altara_socket(asynchat.async_chat):
 	def __init__(self, (host, port)):
@@ -34,7 +29,7 @@ class altara_socket(asynchat.async_chat):
 		self.sendLine("PASS "+str(config.linkpass)+" TS 6 "+str(config.sid))
 		self.sendLine("CAPAB :QS EX IE KLN UNKLN ENCAP TB SERVICES EUID EOPMOD")
 		self.sendLine("SERVER "+str(config.servername)+" 1 :"+str(config.serverdescription))
-		#bring in a client
+		#Create a client
 		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
 		self.sendLine(':'+str(config.sid)+' EUID '+config.clientnick+' 0 '+str(time.time())+' +i '+config.clientuser+' '+config.clienthostname+' 0.0.0.0 '+str(config.sid)+'AAAAAB 0.0.0.0 0 :'+config.clientgecos) 
 		self.sendLine(':'+config.sid+'AAAAAB JOIN '+str(time.time())+' '+config.reportchan+' +')
@@ -75,13 +70,13 @@ class altara_socket(asynchat.async_chat):
 			if account == "*":
 				account = "None"
 			if "o" in modes:
-				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': "True", 'modes': modes}
+				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': True, 'modes': modes}
 			else:
-				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': "False", 'modes': modes}
+				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': False, 'modes': modes}
 		elif split[1] == "ENCAP":
 			if split[3] == "OPER":
 				uid = split[0].replace(":","")
-				self.uidstore[uid]['oper'] = "True"
+				self.uidstore[uid]['oper'] = True
 			elif split[3] == "SU":
 				try:
 					uid = split[4]
@@ -115,15 +110,10 @@ class altara_socket(asynchat.async_chat):
 				except Exception,e:
 					self.sendLine("NOTICE "+config.reportchan+" :ERROR: "+(str(e)))
 			elif splitm[0] == "info":
-				self.sendLine("NOTICE #altara :Info about you: "+nick+"!"+user+"@"+host+" realhost "+realhost+" opered = "+oper+" account = "+account)
+				self.sendLine("NOTICE #altara :Info about you: "+nick+"!"+user+"@"+host+" realhost "+realhost+" opered = "+str(oper)+" account = "+account)
 			for modname,module in self.modules.items():
-				#self.sendLine("notice #altara :Module is "+str(module))
 				module.onPrivmsg(self,uid,nick,host,realhost,account,message)
 			    #do other functions here!
-			#altaramodule.onPrivmsg(self,uid,nick,host,realhost,account,message) #temp
-			#self.sendLine('NOTICE #altara :'+str(self.uidtonick(split[0].replace(":",""))))
-			#self.sendLine("NOTICE #altara :"+str(nick))
-
 			
 
 if __name__ == '__main__':
