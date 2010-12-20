@@ -9,7 +9,6 @@ import sqlite3 as sqlite
 #~ cursor = connection.cursor()
 #~ cursor.execute("create table if not exists users (uid,nick,user,host,account,ip,realhost)")
 #~ connection.commit()  #Let's try a dict. 
-uidstore = {} #Create dictionary
 import altaramodule
 #05CAAA5J7|noidea`|~noidea`|cpe-098-026-094-124.nc.res.rr.com|*|~noidea`|cpe-098-026-094-124.nc.res.rr.com
 
@@ -23,6 +22,7 @@ class altara_socket(asynchat.async_chat):
 		self.connect(self.remote)
 		self.firstSync = 1
 		self.modules = {}
+		self.uidstore = {} #Create dictionary
 	def load(self,modname):
 		self.modules[modname] = __import__(modname)
 		return self.modules[modname] #Do we even need to return?
@@ -48,8 +48,6 @@ class altara_socket(asynchat.async_chat):
 	def collect_incoming_data(self, data):
 		self.data+=data
 	#START API
-	def commandFail(self,error):
-		self.sendLine("NOTICE "+config.reportchan+" :ERROR: "+error)
 	#END API
 	def found_terminator(self):
 		data=self.get_data()
@@ -62,6 +60,8 @@ class altara_socket(asynchat.async_chat):
 				self.sendLine("WALLOPS :Synced with network in "+str(synctime)+" seconds.")
 				self.firstSync = 0
 		elif split[1] == "EUID":
+			##Recv: :05K EUID jason 3 1292805989 +i ~jason nat/bikcmp.com/session 0 05KAAANCY * * :Jason
+			modes = split[5]
 			nick = split[2]
 			user = split[6]
 			host = split[7]
@@ -74,27 +74,50 @@ class altara_socket(asynchat.async_chat):
 			account = split[11]
 			if account == "*":
 				account = "None"
-			uidstore[uid] = {'nick': nick, 'host': host, 'realhost': realhost, 'account': account}
-
-		#Recv: :05K EUID jason 3 1292733825 +i ~jason nat/bikcmp.com/session 0 05KAAAM8K * * :Jason
+			if "o" in modes:
+				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': "True", 'modes': modes}
+			else:
+				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': "False", 'modes': modes}
+		elif split[1] == "ENCAP":
+			if split[3] == "OPER":
+				uid = split[0].replace(":","")
+				self.uidstore[uid]['oper'] = "True"
+			elif split[3] == "SU":
+				try:
+					uid = split[4]
+					newaccount = split[5].replace(":","")
+					self.uidstore[uid]['account'] = newaccount
+				except:
+					pass
+		elif split[1] == "CHGHOST":
+			uid = split[2]
+			newhost = split[3]
+			self.uidstore[uid]['host'] = split[3]
+		elif split[1] == "QUIT":
+			uid = split[0].replace(":","")
+			del self.uidstore[uid]
 		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
 		elif split[1] == "PRIVMSG":
 			target = split[2]
 			message = data.split("PRIVMSG "+target+" :")[1]
 			uid = split[0].replace(":","")
-			nick = uidstore[uid]['nick']
-			host = uidstore[uid]['host']
-			account = uidstore[uid]['account']
-			realhost = uidstore[uid]['realhost']
+			nick = self.uidstore[uid]['nick']
+			host = self.uidstore[uid]['host']
+			user = self.uidstore[uid]['user']
+			account = self.uidstore[uid]['account']
+			realhost = self.uidstore[uid]['realhost']
+			oper = self.uidstore[uid]['oper']
 			splitm = message.split(" ")
 			if splitm[0] == "modload": #TODO: only ircops can use this feature
 				try:
 					modtoload = splitm[1]
 					self.load(modtoload)
 				except Exception,e:
-					self.commandFail(str(e))
+					self.sendLine("NOTICE "+config.reportchan+" :ERROR: "+(str(e)))
+			elif splitm[0] == "info":
+				self.sendLine("NOTICE #altara :Info about you: "+nick+"!"+user+"@"+host+" realhost "+realhost+" opered = "+oper+" account = "+account)
 			for modname,module in self.modules.items():
-				self.sendLine("notice #altara :Module is "+str(module))
+				#self.sendLine("notice #altara :Module is "+str(module))
 				module.onPrivmsg(self,uid,nick,host,realhost,account,message)
 			    #do other functions here!
 			#altaramodule.onPrivmsg(self,uid,nick,host,realhost,account,message) #temp
