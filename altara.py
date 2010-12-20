@@ -16,10 +16,12 @@ class altara_socket(asynchat.async_chat):
 		self.connect(self.remote)
 		self.firstSync = 1
 		self.modules = {}
-		self.uidstore = {} #Create dictionary
+		self.uidstore = {} #Create dictionary.
+		self.createdClients = {} #Create another dictionary for clients that altara makes.
+		self.suid = 100000
 	def load(self,modname):
 		self.modules[modname] = __import__(modname)
-		return self.modules[modname] #Do we even need to return?
+		return self.modules[modname]
 
 	def handle_connect(self):
 		#introduce server
@@ -27,9 +29,7 @@ class altara_socket(asynchat.async_chat):
 		self.sendLine("CAPAB :QS EX IE KLN UNKLN ENCAP TB SERVICES EUID EOPMOD")
 		self.sendLine("SERVER "+str(config.servername)+" 1 :"+str(config.serverdescription))
 		#Create a client
-		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
-		self.sendLine(':'+str(config.sid)+' EUID '+config.clientnick+' 0 '+str(time.time())+' +i '+config.clientuser+' '+config.clienthostname+' 0.0.0.0 '+str(config.sid)+'AAAAAB 0.0.0.0 0 :'+config.clientgecos) 
-		self.sendLine(':'+config.sid+'AAAAAB JOIN '+str(time.time())+' '+config.reportchan+' +')
+		self.createClient('gatekeeper','gatekeeper','gatekeeper.')
 		self.startSyncTS = time.time()
 
 	def get_data(self):
@@ -45,6 +45,21 @@ class altara_socket(asynchat.async_chat):
 	def sendLine(self,data):
 		print "Send: "+str(data)
 		self.push(data+'\r\n')
+	def createClient(self,cnick,cuser,chost):
+		self.suid+=1
+		cuid = str(config.sid)+str(self.suid)
+		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
+		self.sendLine(':'+str(config.sid)+' EUID '+cnick+' 0 '+str(time.time())+' +i '+cuser+' '+chost+' 0.0.0.0 '+cuid+' 0.0.0.0 0 :'+config.clientgecos) 
+		self.sendLine(':'+cuid+' JOIN '+str(time.time())+' '+config.reportchan+' +')
+		self.sendLine("MODE "+config.reportchan+" +o "+cuid)
+		self.createdClients[cnick] = {'uid': cuid}
+		return cuid
+	def suidtoNick(self,nick):
+		return self.createdClients[nick]['uid']
+	def sendPrivmsg(self,sender,target,message):
+		self.sendLine(":"+sender+" PRIVMSG "+target+" :"+message)
+	def sendNotice(self,sender,target,message):
+		self.sendLine(":"+sender+" NOTICE "+target+" :"+message)
 	#END API
 	def found_terminator(self):
 		data=self.get_data()
@@ -76,10 +91,7 @@ class altara_socket(asynchat.async_chat):
 				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': True, 'modes': modes}
 			else:
 				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': False, 'modes': modes}
-			print str(self.modules.items())
 			for modname,module in self.modules.items():
-				print '2'
-				print dir(module)
 				if hasattr(module, "onConnect"):
 					module.onConnect(self,uid)
 		elif split[1] == "ENCAP":
@@ -95,11 +107,21 @@ class altara_socket(asynchat.async_chat):
 					pass
 		elif split[1] == "CHGHOST":
 			uid = split[2]
+			oldhost = self.uidstore[uid]['host']
 			newhost = split[3]
 			self.uidstore[uid]['host'] = split[3]
 			for modname,module in self.modules.items():
 				if hasattr(module, "onChghost"):
-					module.onChghost(self,uid,newhost)
+					module.onChghost(self,uid,oldhost,newhost)
+		#Recv: :05CAAA61H NICK TrinityFlash :1292821028
+		elif split[1] == "NICK":
+			uid = split[0].replace(":","")
+			oldnick = self.uidstore[uid]['nick']
+			newnick = split[2]
+			self.uidstore[uid]['nick'] = newnick
+			for modname,module in self.modules.items():
+				if hasattr(module, "onNickChange"):
+					module.onNickChange(self,uid,oldnick,newnick)
 		elif split[1] == "QUIT":
 			uid = split[0].replace(":","")
 			del self.uidstore[uid]
@@ -118,21 +140,21 @@ class altara_socket(asynchat.async_chat):
 			realhost = self.uidstore[uid]['realhost']
 			oper = self.uidstore[uid]['oper']
 			splitm = message.split(" ")
-			if splitm[0] == "modload": #TODO: only ircops can use this feature
+			if splitm[0].lower() == "modload": #TODO: only ircops can use this feature
 				try:
 					modtoload = splitm[1]
-					self.load(modtoload)
-					#print '1'
-					#module = getattr(__import__(modtoload), modtoload.split('.',1)[1])
-					#print dir(module)
 					self.sendLine("NOTICE "+config.reportchan+" :Loading "+str(modtoload)+" (requested by "+nick+"!"+user+"@"+host+")")
+					module = self.load("module_"+modtoload)
+					module.modinit(self)
 				except Exception,e:
 					self.sendLine("NOTICE "+config.reportchan+" :ERROR: "+(str(e)))
+				#TODO: Reload/unload
 			elif splitm[0] == "info":
 				self.sendLine("NOTICE #altara :Info about you: "+nick+"!"+user+"@"+host+" realhost "+realhost+" opered = "+str(oper)+" account = "+account)
 			for modname,module in self.modules.items():
 				if hasattr(module, "onPrivmsg"):
-					module.onPrivmsg(self,target,uid,nick,host,realhost,account,message)
+					#module.onPrivmsg(self,target,uid,nick,host,realhost,account,message)
+					module.onPrivmsg(self,uid,target,message)
 			    #do other functions here!
 			
 
