@@ -1,5 +1,7 @@
 def modinit(self):
 	self.pieserv = self.createClient("PieServ","PieServ","services.","PieServ!")
+def moddeinit(self):
+	self.destroyClient(self.pieserv,"Shutting down")
 #def onPrivmsg(self,uid,nick,host,realhost,account,message):
 def onPrivmsg(self,uid,target,message):
 	if target == self.pieserv:
