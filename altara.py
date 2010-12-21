@@ -43,7 +43,7 @@ class altara_socket(asynchat.async_chat):
 	def sendLine(self,data):
 		print "Send: "+str(data)
 		self.push(data+'\r\n')
-		def AccountLogin(self,uid,accountname):
+	def AccountLogin(self,uid,accountname):
 		self.sendLine(':'+config.sid+' ENCAP * SU '+uid+' :'+accountname)
 		self.uidstore[uid]['account'] = accountname
 	def AccountLogout(self,uid):
@@ -189,9 +189,9 @@ class altara_socket(asynchat.async_chat):
 			elif splitm[0].lower() == "modreload":
 				try:
 					modname = splitm[1]
-					self.modunload(modname)
-					module = self.load("module_"+modname)
-					module.modinit(self)
+					self.modules["module_"+modname].moddeinit(self)
+					reload(self.modules["module_"+modname])#.moddeinit(self)
+					self.modules["module_"+modname].modinit(self)
 				except Exception,e:
 					self.sendLine("NOTICE "+config.reportchan+" :ERROR: "+(str(e)))
 			
