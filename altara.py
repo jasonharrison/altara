@@ -43,6 +43,11 @@ class altara_socket(asynchat.async_chat):
 	def sendLine(self,data):
 		print "Send: "+str(data)
 		self.push(data+'\r\n')
+	def clientJoin(self,client,channel):
+		self.sendLine(':'+client+' JOIN '+str(time.time())+' '+channel+' +')
+		self.sendLine("MODE "+channel+" +o "+client)
+	def clientPart(self,client,channel,reason):
+		self.sendLine(':'+client+' PART '+channel+' :'+reason)
 	def createClient(self,cnick,cuser,chost,cgecos):
 		self.suid+=1
 		cuid = str(config.sid)+str(self.suid)
@@ -136,6 +141,9 @@ class altara_socket(asynchat.async_chat):
 			for modname,module in self.modules.items():
 				if hasattr(module, "onQuit"):
 					module.onQuit(self,uid)
+		#Recv: :30HAAAADI WHOIS 31D100001 :gatekeeper
+		elif split[1] == "WHOIS":
+			self.sendLine(":31D100001 311 gatekeeper gatekeeper gatekeeper. * :lol")
 		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
 		elif split[1] == "PRIVMSG":
 			target = split[2]
