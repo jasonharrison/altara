@@ -43,10 +43,12 @@ class altara_socket(asynchat.async_chat):
 	def sendLine(self,data):
 		print "Send: "+str(data)
 		self.push(data+'\r\n')
-	def AccountLogin(self,uid,accountname):
+		def AccountLogin(self,uid,accountname):
 		self.sendLine(':'+config.sid+' ENCAP * SU '+uid+' :'+accountname)
+		self.uidstore[uid]['account'] = accountname
 	def AccountLogout(self,uid):
 		self.sendLine(':'+config.sid+' ENCAP * SU :'+uid)
+		self.uidstore[uid]['account'] = 'None'
 	def clientJoin(self,client,channel):
 		self.sendLine(':'+client+' JOIN '+str(time.time())+' '+channel+' +')
 		self.sendLine("MODE "+channel+" +o "+client)
