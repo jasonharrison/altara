@@ -28,7 +28,6 @@ def onPrivmsg(self,uid,target,message):
 					elif "@" not in email:
 						self.sendNotice(self.nickserv,uid,"Please enter a valid email address.")
 			except Exception,e:
-				self.sendNotice(self.nickserv,"#services","Error: "+str(e))
 				self.sendNotice(self.nickserv,uid,"Syntax: \x02register <password> <email>\x02 (Please do NOT include the <>'s)")
 		elif msplit[0].lower() == "login" or msplit[0].lower() == "identify" or msplit[0].lower() == "id":
 			try:
@@ -47,7 +46,6 @@ def onPrivmsg(self,uid,target,message):
 					else:
 						self.sendNotice(self.nickserv,uid,"Invalid password for \x02"+account+"\x02")
 			except Exception, e:
-				self.sendNotice(self.nickserv,"#services","Error: "+str(e))
 				self.sendNotice(self.nickserv,uid,"Syntax: \x02login <account name> <password>\x02 (Please do NOT include the <>'s)")
 		elif msplit[0].lower() == "logout":
 			self.connection.commit()
