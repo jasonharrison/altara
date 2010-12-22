@@ -83,8 +83,7 @@ class altara_socket(asynchat.async_chat):
 			self.sendLine("PONG "+split[1])
 			if self.firstSync == 1:
 				synctime = float(time.time()) - float(self.startSyncTS)
-				#self.sendLine("WALLOPS :Synced with network in "+str(synctime)+" seconds.")
-				self.sendLine("NOTICE #altara :Synced with network in "+str(synctime)+" seconds.")
+				self.sendLine("WALLOPS :Synced with network in "+str(synctime)+" seconds.")
 				self.firstSync = 0
 		elif split[1] == "EUID":
 			#Recv: :05K EUID jason 3 1292805989 +i ~jason nat/bikcmp.com/session 0 05KAAANCY * * :Jason
