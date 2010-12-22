@@ -20,6 +20,7 @@ class altara_socket(asynchat.async_chat):
 		self.nickstore = {}
 		self.suid = 100000
 		self.altaraversion = "Altara 0.01-git [TS6]"
+		self.reportchan = config.reportchan
 
 	def handle_connect(self):
 		#introduce server
@@ -49,6 +50,15 @@ class altara_socket(asynchat.async_chat):
 	def AccountLogout(self,uid):
 		self.sendLine(':'+config.sid+' ENCAP * SU :'+uid)
 		self.uidstore[uid]['account'] = 'None'
+		for modname,module in self.modules.items():
+			if hasattr(module, "onLogin"):
+				module.onLogin(self,uid,oldhost,newhost)
+	def clientChghost(self,uid,newhost):
+		oldhost = self.uidstore[uid]['host']
+		self.sendLine("CHGHOST "+uid+" "+newhost)
+		for modname,module in self.modules.items():
+			if hasattr(module, "onChghost"):
+				module.onChghost(self,uid,oldhost,newhost)
 	def clientJoin(self,client,channel):
 		self.sendLine(':'+client+' JOIN '+str(time.time())+' '+channel+' +')
 		self.sendLine("MODE "+channel+" +o "+client)
@@ -147,8 +157,8 @@ class altara_socket(asynchat.async_chat):
 				if hasattr(module, "onQuit"):
 					module.onQuit(self,uid)
 		#Recv: :30HAAAADI WHOIS 31D100001 :gatekeeper
-		elif split[1] == "WHOIS":
-			self.sendLine(":31D100001 311 gatekeeper gatekeeper gatekeeper. * :lol")
+		#elif split[1] == "WHOIS":
+			#self.sendLine(":31D100001 311 gatekeeper gatekeeper gatekeeper. * :gatekeeper")  #What do I do here?
 		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
 		elif split[1] == "PRIVMSG":
 			target = split[2]
@@ -178,7 +188,7 @@ class altara_socket(asynchat.async_chat):
 			elif splitm[0].lower() == "modlist":
 				#modname = splitm[1]
 				#del self.modules[modname]
-				self.sendLine("NOTICE #altara :Modules: "+str(self.modules.keys()))
+				self.sendLine("NOTICE "+config.reportchan+" :Modules: "+str(self.modules.keys()))
 			elif splitm[0].lower() == "modunload":
 				try:
 					modname = splitm[1]
@@ -196,7 +206,7 @@ class altara_socket(asynchat.async_chat):
 			
 				#self.sendLine("NOTICE #altara :Modules: "+str(self.modules.items()))
 			elif splitm[0] == "info":
-				self.sendLine("NOTICE #altara :Info about you: NICK1 "+self.nickstore['bikcmp']['uid']+" NICK "+nick+"!"+user+"@"+host+" realhost "+realhost+" opered = "+str(oper)+" account = "+account)
+				self.sendLine("NOTICE "+config.reportchan+" :Info about you: NICK1 "+self.nickstore['bikcmp']['uid']+" NICK "+nick+"!"+user+"@"+host+" realhost "+realhost+" opered = "+str(oper)+" account = "+account)
 			for modname,module in self.modules.items():
 				if hasattr(module, "onPrivmsg"):
 					#module.onPrivmsg(self,target,uid,nick,host,realhost,account,message)
