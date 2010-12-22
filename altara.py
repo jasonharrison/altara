@@ -54,11 +54,15 @@ class altara_socket(asynchat.async_chat):
 			if hasattr(module, "onLogin"):
 				module.onLogin(self,uid,oldhost,newhost)
 	def clientChghost(self,uid,newhost):
+	 #try:
 		oldhost = self.uidstore[uid]['host']
-		self.sendLine("CHGHOST "+uid+" "+newhost)
+		self.sendLine("CHGHOST "+str(uid)+" "+str(newhost))
+		self.uidstore[uid]['host'] = str(newhost)
 		for modname,module in self.modules.items():
 			if hasattr(module, "onChghost"):
 				module.onChghost(self,uid,oldhost,newhost)
+	 #except Exception, e:
+		# print e
 	def clientJoin(self,client,channel):
 		self.sendLine(':'+client+' JOIN '+str(time.time())+' '+channel+' +')
 		self.sendLine("MODE "+channel+" +o "+client)

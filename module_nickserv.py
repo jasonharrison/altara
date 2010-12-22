@@ -23,6 +23,8 @@ def onPrivmsg(self,uid,target,message):
 					if "@" in email:
 						self.cursor.execute('INSERT INTO accounts VALUES (?,?,?,?)',(account,pwhash,email,"None"))
 						self.connection.commit()
+						self.AccountLogin(uid,account)
+						self.sendNotice(self.nickserv,uid,"Thank you for registering.")
 					elif "@" not in email:
 						self.sendNotice(self.nickserv,uid,"Please enter a valid email address.")
 			except Exception,e:
@@ -35,14 +37,15 @@ def onPrivmsg(self,uid,target,message):
 				pwhash = str(hashlib.sha512(password).hexdigest())
 				self.cursor.execute("SELECT * from accounts where account=?",(account,))
 				for row in self.cursor:
-					print row[1]
-					print pwhash
 					if row[1] == pwhash:
-						print "1"
+						self.AccountLogin(uid,account)
+						if row[3] == "None":
+							pass
+						else:
+							self.clientChghost(uid,str(row[3]))
+						self.sendNotice(self.nickserv,uid,"You are now identified for \x02"+account+"\x02")
 					else:
-						print "0"
-				self.AccountLogin(uid,msplit[1])
-				self.sendNotice(self.nickserv,uid,"You are now identified for \x02"+msplit[1]+"\x02")
+						self.sendNotice(self.nickserv,uid,"Invalid password for \x02"+account+"\x02")
 			except Exception, e:
 				self.sendNotice(self.nickserv,"#services","Error: "+str(e))
 				self.sendNotice(self.nickserv,uid,"Syntax: \x02login <account name> <password>\x02 (Please do NOT include the <>'s)")
@@ -50,6 +53,10 @@ def onPrivmsg(self,uid,target,message):
 			self.connection.commit()
 			self.AccountLogout(uid)
 			self.sendNotice(self.nickserv,uid,"You are now logged out.")
+		#Oper only commands.
+		if self.uidstore[uid]['oper'] == True:
+			if msplit[0].lower() == "vhost":
+				#TODO
 		elif msplit[0].lower() == "help":
 			self.sendNotice(self.nickserv,uid,"No help, yet.")
 def moddeinit(self):
