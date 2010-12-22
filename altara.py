@@ -54,15 +54,12 @@ class altara_socket(asynchat.async_chat):
 			if hasattr(module, "onLogin"):
 				module.onLogin(self,uid,oldhost,newhost)
 	def clientChghost(self,uid,newhost):
-	 #try:
 		oldhost = self.uidstore[uid]['host']
 		self.sendLine("CHGHOST "+str(uid)+" "+str(newhost))
 		self.uidstore[uid]['host'] = str(newhost)
 		for modname,module in self.modules.items():
 			if hasattr(module, "onChghost"):
 				module.onChghost(self,uid,oldhost,newhost)
-	 #except Exception, e:
-		# print e
 	def clientJoin(self,client,channel):
 		self.sendLine(':'+client+' JOIN '+str(time.time())+' '+channel+' +')
 		self.sendLine("MODE "+channel+" +o "+client)
@@ -72,7 +69,7 @@ class altara_socket(asynchat.async_chat):
 		self.suid+=1
 		cuid = str(config.sid)+str(self.suid)
 		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
-		self.sendLine(':'+str(config.sid)+' EUID '+cnick+' 0 '+str(time.time())+' +i '+cuser+' '+chost+' 0.0.0.0 '+cuid+' 0.0.0.0 0 :'+cgecos) 
+		self.sendLine(':'+str(config.sid)+' EUID '+cnick+' 0 '+str(time.time())+' +iS '+cuser+' '+chost+' 0.0.0.0 '+cuid+' 0.0.0.0 0 :'+cgecos) 
 		self.sendLine(':'+cuid+' JOIN '+str(time.time())+' '+config.reportchan+' +')
 		self.sendLine("MODE "+config.reportchan+" +o "+cuid)
 		return cuid
@@ -199,14 +196,21 @@ class altara_socket(asynchat.async_chat):
 					self.modunload(modname)
 				except Exception,e:
 					self.sendLine("NOTICE "+config.reportchan+" :ERROR: "+(str(e)))
-			elif splitm[0].lower() == "modreload":
+			elif splitm[0].lower() == "modfullreload":
 				try:
 					modname = splitm[1]
 					self.modules["module_"+modname].moddeinit(self)
-					reload(self.modules["module_"+modname])#.moddeinit(self)
+					reload(self.modules["module_"+modname])
 					self.modules["module_"+modname].modinit(self)
 				except Exception,e:
-					self.sendLine("NOTICE "+config.reportchan+" :ERROR: "+(str(e)))
+					self.sendLine("NOTICE "+uid+" :ERROR Reloading: "+(str(e)+" (is the module loaded?)"))
+			#Reload without using modinit/deinit
+			elif splitm[0].lower() == "modreload":
+				try:
+					modname = splitm[1]
+					reload(self.modules["module_"+modname])
+				except Exception,e:
+					self.sendLine("NOTICE "+uid+" :ERROR Reloading: "+(str(e)+" (is the module loaded?)"))
 			
 				#self.sendLine("NOTICE #altara :Modules: "+str(self.modules.items()))
 			elif splitm[0] == "info":
