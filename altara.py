@@ -31,10 +31,11 @@ class altara_socket(asynchat.async_chat):
 		self.createClient(config.clientnick,config.clientuser,config.clienthostname,config.clientgecos)
 		self.startSyncTS = time.time()
 		#Load modules
-		for modtoload in self.onloadmodules.split(" "):
-			module = self.load("module_"+modtoload)
-			module.modinit(self)
-			#self.sendLine("notice #services :"+str(module)+"")
+		if self.onloadmodules != '':
+			for modtoload in self.onloadmodules.split(" "):
+				module = self.load("module_"+modtoload)
+				module.modinit(self)
+				#self.sendLine("notice #services :"+str(module)+"")
 
 
 	def get_data(self):

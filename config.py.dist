@@ -12,4 +12,4 @@ clienthostname = "gatekeeper."
 clientgecos = "gatekeeper"
 clientuser = "gatekeeper"
 reportchan = "#services"
-onloadmodules = 'pieserv testserv' #seperate module names with spaces
+onloadmodules = 'pieserv testserv' #seperate module names with spaces - if you don't want to load any modules, just set it to onloadmodules = ''
