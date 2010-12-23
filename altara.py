@@ -19,9 +19,9 @@ class altara_socket(asynchat.async_chat):
 		self.uidstore = {} #Create dictionary.
 		self.nickstore = {}
 		self.suid = 100000
-		self.altaraversion = "Altara 0.01-git [TS6]"
+		self.altaraversion = "Altara-git [TS6]"
 		self.reportchan = config.reportchan
-
+		self.onloadmodules = config.onloadmodules
 	def handle_connect(self):
 		#introduce server
 		self.sendLine("PASS "+str(config.linkpass)+" TS 6 "+str(config.sid))
@@ -30,6 +30,12 @@ class altara_socket(asynchat.async_chat):
 		#Create a client
 		self.createClient(config.clientnick,config.clientuser,config.clienthostname,config.clientgecos)
 		self.startSyncTS = time.time()
+		#Load modules
+		for modtoload in self.onloadmodules.split(" "):
+			module = self.load("module_"+modtoload)
+			module.modinit(self)
+			#self.sendLine("notice #services :"+str(module)+"")
+
 
 	def get_data(self):
 		r=self.data
@@ -60,6 +66,7 @@ class altara_socket(asynchat.async_chat):
 		for modname,module in self.modules.items():
 			if hasattr(module, "onChghost"):
 				module.onChghost(self,uid,oldhost,newhost)
+	
 	def clientJoin(self,client,channel):
 		self.sendLine(':'+client+' JOIN '+str(time.time())+' '+channel+' +')
 		self.sendLine("MODE "+channel+" +o "+client)
@@ -234,6 +241,13 @@ class altara_socket(asynchat.async_chat):
 					reload(self.modules["module_"+modname])
 				except Exception,e:
 					self.sendLine("NOTICE "+uid+" :ERROR Reloading: "+(str(e)+" (is the module loaded?)"))
+			#~ elif splitm[0].lower() == "d-exec": #Do *NOT* enable this on a production network.  Used for debugging ONLY.
+				#~ try:
+					#~ query = message.split('d-exec ')[1]
+					#~ ret=str(eval(query))
+					#~ self.sendLine("NOTICE #services :Debug: "+ret)
+				#~ except Exception,e:
+					#~ self.sendLine("NOTICE #services :Debug ERROR: "+str(e))
 			
 				#self.sendLine("NOTICE #altara :Modules: "+str(self.modules.items()))
 			#~ elif splitm[0] == "info":

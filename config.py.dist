@@ -12,3 +12,4 @@ clienthostname = "gatekeeper."
 clientgecos = "gatekeeper"
 clientuser = "gatekeeper"
 reportchan = "#services"
+onloadmodules = 'pieserv testserv' #seperate module names with spaces
