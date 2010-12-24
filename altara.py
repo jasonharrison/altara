@@ -1,4 +1,4 @@
-import asynchat,asyncore,socket,time
+import asynchat,asyncore,socket,time,re
 
 try:
 	import config
@@ -18,6 +18,7 @@ class altara_socket(asynchat.async_chat):
 		self.modules = {}
 		self.uidstore = {} #Create dictionary.
 		self.nickstore = {}
+		self.chanstore = {}
 		self.suid = 100000
 		self.altaraversion = "Altara-git [TS6]"
 		self.reportchan = config.reportchan
@@ -122,12 +123,25 @@ class altara_socket(asynchat.async_chat):
 				account = "None"
 			self.nickstore[nick] = {'uid': uid}
 			if "o" in modes:
-				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': True, 'modes': modes}
+				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': True, 'modes': modes, 'channels': ''}
 			else:
-				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': False, 'modes': modes}
+				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': False, 'modes': modes, 'channels': ''}
 			for modname,module in self.modules.items():
 				if hasattr(module, "onConnect"):
 					module.onConnect(self,uid)
+		elif split[1] == "SJOIN":
+			chandata = re.search("SJOIN (\d+) (#[a-zA-Z0-9]+) +(.*) :(.*)",data).groups()
+			uids = chandata[3]
+			channel = chandata[1]
+			try:
+				for uid in uids.strip("+").strip("@").split(" "):
+					nick = self.uidstore[uid]['nick']
+					#self.chanstore[channel][nick
+					oldchans = self.uidstore[uid]['channels']
+					self.uidstore[uid]['channels'] = oldchans+" "+channel
+			except:
+				pass
+			#self.chanstore[channel] = {'
 		elif split[1] == "ENCAP":
 			if split[3] == "OPER":
 				uid = split[0].replace(":","")
