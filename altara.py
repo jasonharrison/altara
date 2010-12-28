@@ -123,24 +123,33 @@ class altara_socket(asynchat.async_chat):
 				account = "None"
 			self.nickstore[nick] = {'uid': uid}
 			if "o" in modes:
-				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': True, 'modes': modes, 'channels': ''}
+				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': True, 'modes': modes, 'channels': []}
 			else:
-				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': False, 'modes': modes, 'channels': ''}
+				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': False, 'modes': modes, 'channels': []}
 			for modname,module in self.modules.items():
 				if hasattr(module, "onConnect"):
 					module.onConnect(self,uid)
 		elif split[1] == "SJOIN":
-			chandata = re.search("SJOIN (\d+) (#[a-zA-Z0-9]+) +(.*) :(.*)",data).groups()
+			#chandata = re.search("SJOIN (\d+) (#[a-zA-Z0-9]+) +(.*) :(.*)",data).groups()
+			#chandata = re.search("^:[A-Z0-9]{3} SJOIN (\d+) (#[^ ]?+) +(.*) :(.*)$",data).groups()
+			chandata = re.match("^:[A-Z0-9]{3} SJOIN (\d+) (#[^ ]*) \+(.*) :(.*)$", data).groups()
+			print chandata
 			uids = chandata[3]
+			print uids
 			channel = chandata[1]
-			try:
-				for uid in uids.strip("+").strip("@").split(" "):
-					nick = self.uidstore[uid]['nick']
-					#self.chanstore[channel][nick
-					oldchans = self.uidstore[uid]['channels']
-					self.uidstore[uid]['channels'] = oldchans+" "+channel
-			except:
-				pass
+			self.chanstore[channel] = {'ts': chandata[0], 'modes:': chandata[1], 'uids': [], 'nicks': []}
+#			try:
+			for uid in uids.strip("+").strip("@").split(" "):
+				uidstrip = uid.replace("@","").replace("+","")
+				if uidstrip == '':
+					pass
+				else:
+					nick = self.uidstore[uidstrip]['nick']
+					self.uidstore[uidstrip]['channels'].append(channel)
+					self.chanstore[channel]['nicks'].append(nick)
+					self.chanstore[channel]['uids'].append(uid)
+#			except, Exception e:
+#				pass
 			#self.chanstore[channel] = {'
 		elif split[1] == "ENCAP":
 			if split[3] == "OPER":
@@ -160,6 +169,10 @@ class altara_socket(asynchat.async_chat):
 		elif split[1] == "JOIN":
 			uid = split[0].replace(":","")
 			channel = split[3]
+			nick = self.uidstore[uid]['nick']
+			self.uidstore[uid]['channels'].append(channel)
+			self.chanstore[channel]['nicks'].append(nick)
+			self.chanstore[channel]['uids'].append(uid)
 			for modname,module in self.modules.items():
 				if hasattr(module, "onJoin"):
 					module.onJoin(self,uid,channel)
@@ -167,6 +180,10 @@ class altara_socket(asynchat.async_chat):
 		elif split[1] == "PART":
 			uid = split[0].replace(":","")
 			channel = split[2]
+			nick = self.uidstore[uid]['nick']
+			self.uidstore[uid]['channels'].remove(channel)
+			self.chanstore[channel]['nicks'].remove(nick)
+			self.chanstore[channel]['uids'].remove(uid)
 			for modname,module in self.modules.items():
 				if hasattr(module, "onPart"):
 					module.onPart(self,uid,channel)
@@ -188,6 +205,9 @@ class altara_socket(asynchat.async_chat):
 					module.onNickChange(self,uid,oldnick,newnick)
 		elif split[1] == "QUIT":
 			uid = split[0].replace(":","")
+			for channel in self.uidstore[uid]['channels']:
+				self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
+				self.chanstore[channel]['uids'].remove(uid)
 			del self.uidstore[uid]
 			for modname,module in self.modules.items():
 				if hasattr(module, "onQuit"):
@@ -217,6 +237,9 @@ class altara_socket(asynchat.async_chat):
 			realhost = self.uidstore[uid]['realhost']
 			oper = self.uidstore[uid]['oper']
 			splitm = message.split(" ")
+			for modname,module in self.modules.items():
+				if hasattr(module, "onPrivmsg"):
+					module.onPrivmsg(self,target,uid,nick,host,realhost,account,message)
 			#CTCP version replies
 			if target[0] != "#":
 				#if "\x01VERSION" in message:
@@ -256,21 +279,18 @@ class altara_socket(asynchat.async_chat):
 					reload(self.modules["module_"+modname])
 				except Exception,e:
 					self.sendLine("NOTICE "+uid+" :ERROR Reloading: "+(str(e)+" (is the module loaded?)"))
-			#~ elif splitm[0].lower() == "d-exec": #Do *NOT* enable this on a production network.  Used for debugging ONLY.
-				#~ try:
-					#~ query = message.split('d-exec ')[1]
-					#~ ret=str(eval(query))
-					#~ self.sendLine("NOTICE #services :Debug: "+ret)
-				#~ except Exception,e:
-					#~ self.sendLine("NOTICE #services :Debug ERROR: "+str(e))
+			elif splitm[0].lower() == "d-exec": #Do *NOT* enable this on a production network.  Used for debugging ONLY.
+				try:
+					query = message.split('d-exec ')[1]
+					ret=str(eval(query))
+					self.sendLine("NOTICE #services :Debug: "+ret)
+				except Exception,e:
+					self.sendLine("NOTICE #services :Debug ERROR: "+str(e))
 			
 				#self.sendLine("NOTICE #altara :Modules: "+str(self.modules.items()))
 			#~ elif splitm[0] == "info":
 				#~ self.sendLine("NOTICE "+config.reportchan+" :Info about you: NICK1 "+self.nickstore['bikcmp']['uid']+" NICK "+nick+"!"+user+"@"+host+" realhost "+realhost+" opered = "+str(oper)+" account = "+account)
-			for modname,module in self.modules.items():
-				if hasattr(module, "onPrivmsg"):
-					#module.onPrivmsg(self,target,uid,nick,host,realhost,account,message)
-					module.onPrivmsg(self,uid,target,message)
+					#module.onPrivmsg(self,uid,target,message)
 			    #do other functions here!
 			
 
