@@ -199,6 +199,9 @@ class altara_socket(asynchat.async_chat):
 			uid = split[0].replace(":","")
 			oldnick = self.uidstore[uid]['nick']
 			newnick = split[2]
+			for channel in self.uidstore[uid]['channels']:
+				self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
+				self.chanstore[channel]['nicks'].append(newnick)
 			self.uidstore[uid]['nick'] = newnick
 			for modname,module in self.modules.items():
 				if hasattr(module, "onNickChange"):
