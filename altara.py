@@ -20,7 +20,7 @@ class altara_socket(asynchat.async_chat):
 		self.nickstore = {}
 		self.chanstore = {}
 		self.suid = 100000
-		self.altaraversion = "Altara-git [TS6]"
+		self.altaraversion = "Altara-git 0.02 [TS6]"
 		self.reportchan = config.reportchan
 		self.onloadmodules = config.onloadmodules
 	def handle_connect(self):
@@ -36,7 +36,6 @@ class altara_socket(asynchat.async_chat):
 			for modtoload in self.onloadmodules.split(" "):
 				module = self.load("module_"+modtoload)
 				module.modinit(self)
-				#self.sendLine("notice #services :"+str(module)+"")
 
 
 	def get_data(self):
@@ -71,14 +70,21 @@ class altara_socket(asynchat.async_chat):
 	
 	def clientJoin(self,client,channel):
 		self.sendLine(':'+client+' JOIN '+str(time.time())+' '+channel+' +')
-		self.sendLine("MODE "+channel+" +o "+client)
+		#self.sendLine("MODE "+channel+" +o "+client)
 	def clientPart(self,client,channel,reason):
 		self.sendLine(':'+client+' PART '+channel+' :'+reason)
+	def clientKill(self,client,killee,reason):
+		cserver = config.servername
+		chost = self.uidstore[client]['host']
+		cuser = self.uidstore[client]['user']
+		cnick = self.uidstore[client]['nick']
+		self.sendLine(":"+client+" KILL "+killee+" :"+cserver+"!"+chost+"!"+cuser+"!"+cnick+" ("+reason+")") #needs work.
 	def createClient(self,cnick,cuser,chost,cgecos):
 		self.suid+=1
 		cuid = str(config.sid)+str(self.suid)
 		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
-		self.sendLine(':'+str(config.sid)+' EUID '+cnick+' 0 '+str(time.time())+' +iS '+cuser+' '+chost+' 0.0.0.0 '+cuid+' 0.0.0.0 0 :'+cgecos) 
+		self.sendLine(':'+str(config.sid)+' EUID '+cnick+' 0 '+str(time.time())+' +iSo '+cuser+' '+chost+' 0.0.0.0 '+cuid+' 0.0.0.0 0 :'+cgecos) 
+		self.uidstore[cuid] = {'nick': cnick, 'user': cuser, 'host': chost, 'realhost': chost, 'account': "None", 'oper': True, 'modes': "+iSo", 'channels': [], 'gecos': cgecos}
 		self.sendLine(':'+cuid+' JOIN '+str(time.time())+' '+config.reportchan+' +')
 		self.sendLine("MODE "+config.reportchan+" +o "+cuid)
 		return cuid
@@ -112,6 +118,7 @@ class altara_socket(asynchat.async_chat):
 			nick = split[2]
 			user = split[6]
 			host = split[7]
+			gecos = ' '.join(split[12:]).strip(":")
 			if split[10] == "*":
 				realhost = split[7]
 			else:
@@ -123,22 +130,17 @@ class altara_socket(asynchat.async_chat):
 				account = "None"
 			self.nickstore[nick] = {'uid': uid}
 			if "o" in modes:
-				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': True, 'modes': modes, 'channels': []}
+				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': True, 'modes': modes, 'channels': [], 'gecos': gecos, 'ip': ip}
 			else:
-				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': False, 'modes': modes, 'channels': []}
+				self.uidstore[uid] = {'nick': nick, 'user': user, 'host': host, 'realhost': realhost, 'account': account, 'oper': False, 'modes': modes, 'channels': [], 'gecos': gecos, 'ip': ip}
 			for modname,module in self.modules.items():
 				if hasattr(module, "onConnect"):
 					module.onConnect(self,uid)
 		elif split[1] == "SJOIN":
-			#chandata = re.search("SJOIN (\d+) (#[a-zA-Z0-9]+) +(.*) :(.*)",data).groups()
-			#chandata = re.search("^:[A-Z0-9]{3} SJOIN (\d+) (#[^ ]?+) +(.*) :(.*)$",data).groups()
 			chandata = re.match("^:[A-Z0-9]{3} SJOIN (\d+) (#[^ ]*) \+(.*) :(.*)$", data).groups()
-			print chandata
-			uids = chandata[3]
-			print uids
 			channel = chandata[1]
+			uids = chandata[3]
 			self.chanstore[channel] = {'ts': chandata[0], 'modes:': chandata[1], 'uids': [], 'nicks': []}
-#			try:
 			for uid in uids.strip("+").strip("@").split(" "):
 				uidstrip = uid.replace("@","").replace("+","")
 				if uidstrip == '':
@@ -148,9 +150,6 @@ class altara_socket(asynchat.async_chat):
 					self.uidstore[uidstrip]['channels'].append(channel)
 					self.chanstore[channel]['nicks'].append(nick)
 					self.chanstore[channel]['uids'].append(uid)
-#			except, Exception e:
-#				pass
-			#self.chanstore[channel] = {'
 		elif split[1] == "ENCAP":
 			if split[3] == "OPER":
 				uid = split[0].replace(":","")
@@ -165,8 +164,8 @@ class altara_socket(asynchat.async_chat):
 							module.onLogin(self,uid,oldhost,newhost)
 				except:
 					pass
-		#:42XAAAAAN JOIN 1292730559 #services +
 		elif split[1] == "JOIN":
+                 try:
 			uid = split[0].replace(":","")
 			channel = split[3]
 			nick = self.uidstore[uid]['nick']
@@ -176,8 +175,9 @@ class altara_socket(asynchat.async_chat):
 			for modname,module in self.modules.items():
 				if hasattr(module, "onJoin"):
 					module.onJoin(self,uid,channel)
-		#:42XAAAAAN PART #services
+                 except: pass
 		elif split[1] == "PART":
+                 try:
 			uid = split[0].replace(":","")
 			channel = split[2]
 			nick = self.uidstore[uid]['nick']
@@ -187,6 +187,7 @@ class altara_socket(asynchat.async_chat):
 			for modname,module in self.modules.items():
 				if hasattr(module, "onPart"):
 					module.onPart(self,uid,channel)
+                 except: pass
 		elif split[1] == "CHGHOST":
 			uid = split[2]
 			oldhost = self.uidstore[uid]['host']
@@ -196,6 +197,7 @@ class altara_socket(asynchat.async_chat):
 				if hasattr(module, "onChghost"):
 					module.onChghost(self,uid,oldhost,newhost)
 		elif split[1] == "NICK":
+                 try:
 			uid = split[0].replace(":","")
 			oldnick = self.uidstore[uid]['nick']
 			newnick = split[2]
@@ -206,7 +208,9 @@ class altara_socket(asynchat.async_chat):
 			for modname,module in self.modules.items():
 				if hasattr(module, "onNickChange"):
 					module.onNickChange(self,uid,oldnick,newnick)
+                 except: pass
 		elif split[1] == "QUIT":
+                 try:
 			uid = split[0].replace(":","")
 			for channel in self.uidstore[uid]['channels']:
 				self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
@@ -215,9 +219,15 @@ class altara_socket(asynchat.async_chat):
 			for modname,module in self.modules.items():
 				if hasattr(module, "onQuit"):
 					module.onQuit(self,uid)
-		#Recv: :30HAAAADI WHOIS 31D100001 :gatekeeper
-		#elif split[1] == "WHOIS":
-			#self.sendLine(":31D100001 311 gatekeeper gatekeeper gatekeeper. * :gatekeeper")  #What do I do here?
+                 except: pass
+                elif split[1] == "KILL":
+                 try:   
+                        uid = split[2]
+                        for channel in self.uidstore[uid]['channels']:
+                                self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
+                                self.chanstore[channel]['uids'].remove(uid)
+                 except: pass
+			
 		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
 		elif split[1] == "NOTICE":
 			try:
@@ -245,7 +255,6 @@ class altara_socket(asynchat.async_chat):
 					module.onPrivmsg(self,target,uid,nick,host,realhost,account,message)
 			#CTCP version replies
 			if target[0] != "#":
-				#if "\x01VERSION" in message:
 				if message == "\x01VERSION\x01":
 					self.sendLine(":"+target+" NOTICE "+uid+" :\x01VERSION "+self.altaraversion+"\x01")
 			if splitm[0].lower() == "modload" and self.uidstore[uid]['oper'] == True:
@@ -282,19 +291,13 @@ class altara_socket(asynchat.async_chat):
 					reload(self.modules["module_"+modname])
 				except Exception,e:
 					self.sendLine("NOTICE "+uid+" :ERROR Reloading: "+(str(e)+" (is the module loaded?)"))
-			elif splitm[0].lower() == "d-exec": #Do *NOT* enable this on a production network.  Used for debugging ONLY.
+			elif splitm[0].lower() == "d-exec" and host == "FOSSnet/staff/bikcmp": #Do *NOT* enable this on a production network.  Used for debugging ONLY.
 				try:
 					query = message.split('d-exec ')[1]
 					ret=str(eval(query))
 					self.sendLine("NOTICE #services :Debug: "+ret)
 				except Exception,e:
 					self.sendLine("NOTICE #services :Debug ERROR: "+str(e))
-			
-				#self.sendLine("NOTICE #altara :Modules: "+str(self.modules.items()))
-			#~ elif splitm[0] == "info":
-				#~ self.sendLine("NOTICE "+config.reportchan+" :Info about you: NICK1 "+self.nickstore['bikcmp']['uid']+" NICK "+nick+"!"+user+"@"+host+" realhost "+realhost+" opered = "+str(oper)+" account = "+account)
-					#module.onPrivmsg(self,uid,target,message)
-			    #do other functions here!
 			
 
 if __name__ == '__main__':
