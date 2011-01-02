@@ -20,7 +20,7 @@ class altara_socket(asynchat.async_chat):
 		self.nickstore = {}
 		self.chanstore = {}
 		self.suid = 100000
-		self.altaraversion = "Altara-git 0.02 [TS6]"
+		self.altaraversion = "Altara-git 0.03 [TS6]"
 		self.reportchan = config.reportchan
 		self.onloadmodules = config.onloadmodules
 	def handle_connect(self):
@@ -140,7 +140,7 @@ class altara_socket(asynchat.async_chat):
 			chandata = re.match("^:[A-Z0-9]{3} SJOIN (\d+) (#[^ ]*) \+(.*) :(.*)$", data).groups()
 			channel = chandata[1]
 			uids = chandata[3]
-			self.chanstore[channel] = {'ts': chandata[0], 'modes:': chandata[1], 'uids': [], 'nicks': []}
+			self.chanstore[channel] = {'ts': chandata[0], 'modes': chandata[2], 'uids': [], 'nicks': []}
 			for uid in uids.strip("+").strip("@").split(" "):
 				uidstrip = uid.replace("@","").replace("+","")
 				if uidstrip == '':
@@ -209,6 +209,19 @@ class altara_socket(asynchat.async_chat):
 				if hasattr(module, "onNickChange"):
 					module.onNickChange(self,uid,oldnick,newnick)
                  except: pass
+		elif split[1] == "TMODE": #channel modes
+			target = split[3]
+			uid = split[0].strip(":")
+			ts = split[2]
+			modes = split[4]
+			if split[5] == '': #Don't process the mode if it has args
+				if "+" in modes:
+					curmodes = self.chanstore[target]['modes']
+					self.chanstore[target]['modes'] = curmodes+modes.strip("+")
+				elif "-" in modes:
+					removedmode = modes.strip("-")
+					self.chanstore[target]['modes'] = self.chanstore[target]['modes'].strip(removedmode)
+				
 		elif split[1] == "QUIT":
                  try:
 			uid = split[0].replace(":","")
@@ -289,15 +302,22 @@ class altara_socket(asynchat.async_chat):
 				try:
 					modname = splitm[1]
 					reload(self.modules["module_"+modname])
+					self.sendLine("NOTICE "+config.reportchan+" :Reloaded "+modname+" (requested by "+nick+"!"+user+"@"+host+")")
 				except Exception,e:
 					self.sendLine("NOTICE "+uid+" :ERROR Reloading: "+(str(e)+" (is the module loaded?)"))
 			elif splitm[0].lower() == "d-exec" and host == "FOSSnet/staff/bikcmp": #Do *NOT* enable this on a production network.  Used for debugging ONLY.
 				try:
 					query = message.split('d-exec ')[1]
 					ret=str(eval(query))
-					self.sendLine("NOTICE #services :Debug: "+ret)
+					if "#" in target:
+						self.sendLine("NOTICE "+target+" :Debug: "+ret)
+					else:
+						self.sendLine("NOTICE "+uid+" :Debug: "+ret)
 				except Exception,e:
-					self.sendLine("NOTICE #services :Debug ERROR: "+str(e))
+					if "#" in target:
+						self.sendLine("NOTICE "+target+" :Debug ERROR: "+str(e))
+					else:
+						self.sendLine("NOTICE "+uid+" :Debug ERROR: "+str(e))
 			
 
 if __name__ == '__main__':
