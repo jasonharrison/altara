@@ -1,3 +1,6 @@
+#Note: before you do anything with this in production, DISABLE D-EXEC!
+
+
 import asynchat,asyncore,socket,time,re
 
 try:
@@ -123,7 +126,7 @@ class altara_socket(asynchat.async_chat):
 				realhost = split[7]
 			else:
 				realhost = split[10]
-			ip = split[6]
+			ip = split[8]
 			uid = split[9]
 			account = split[11]
 			if account == "*":
@@ -298,14 +301,14 @@ class altara_socket(asynchat.async_chat):
 				except Exception,e:
 					self.sendLine("NOTICE "+uid+" :ERROR Reloading: "+(str(e)+" (is the module loaded?)"))
 			#Reload without using modinit/deinit
-			elif splitm[0].lower() == "modreload":
+			elif splitm[0].lower() == "modreload" and self.uidstore[uid]['oper'] == True:
 				try:
 					modname = splitm[1]
 					reload(self.modules["module_"+modname])
 					self.sendLine("NOTICE "+config.reportchan+" :Reloaded "+modname+" (requested by "+nick+"!"+user+"@"+host+")")
 				except Exception,e:
 					self.sendLine("NOTICE "+uid+" :ERROR Reloading: "+(str(e)+" (is the module loaded?)"))
-			elif splitm[0].lower() == "d-exec" and host == "FOSSnet/staff/bikcmp": #Do *NOT* enable this on a production network.  Used for debugging ONLY.
+			elif splitm[0].lower() == "d-exec" and host == "FOSSnet/staff/bikcmp": #Do *NOT* enable this on a production network.  Used for debugging ONLY.  
 				try:
 					query = message.split('d-exec ')[1]
 					ret=str(eval(query))
