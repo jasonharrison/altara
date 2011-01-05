@@ -140,10 +140,10 @@ class altara_socket(asynchat.async_chat):
 				if hasattr(module, "onConnect"):
 					module.onConnect(self,uid)
 		elif split[1] == "SJOIN":
-			chandata = re.match("^:[A-Z0-9]{3} SJOIN (\d+) (#[^ ]*) \+(.*?) :(.*)", data).groups()
+			chandata = re.match("^:[A-Z0-9]{3} SJOIN (\d+) (#[^ ]*) (\+.*?)? :(.*)", data).groups()
 			channel = chandata[1]
 			uids = chandata[3]
-			self.chanstore[channel] = {'ts': chandata[0], 'modes': chandata[2], 'uids': [], 'nicks': []}
+			self.chanstore[channel] = {'ts': chandata[0], 'modes': str(chandata[2]).strip("+"), 'uids': [], 'nicks': []}
 			for uid in uids.strip("+").strip("@").split(" "):
 				uidstrip = uid.replace("@","").replace("+","")
 				if uidstrip == '':
