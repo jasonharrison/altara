@@ -226,16 +226,17 @@ class altara_socket(asynchat.async_chat):
 					self.chanstore[target]['modes'] = self.chanstore[target]['modes'].strip(removedmode)
 				
 		elif split[1] == "QUIT":
-                 try:
-			uid = split[0].replace(":","")
-			for channel in self.uidstore[uid]['channels']:
-				self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
-				self.chanstore[channel]['uids'].remove(uid)
-			del self.uidstore[uid]
-			for modname,module in self.modules.items():
-				if hasattr(module, "onQuit"):
-					module.onQuit(self,uid)
-                 except: pass
+			try:
+				uid = split[0].replace(":","")
+				for modname,module in self.modules.items():
+					if hasattr(module, "onQuit"):
+						module.onQuit(self,uid)
+				for channel in self.uidstore[uid]['channels']:
+					self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
+					self.chanstore[channel]['uids'].remove(uid)
+				del self.uidstore[uid]
+			except:
+				pass       
                 elif split[1] == "KILL":
                  try:   
                         uid = split[2]
