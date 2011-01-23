@@ -2,15 +2,15 @@ X = done, ? = Needs discussion, / = in progress.
 
 [X] End of burst detection
 [/] Write config parser (ConfigParser?)
-    [?] Reload from IRC, without errors in config causing services to crash.
+    [/] Reload from IRC, without errors in config causing services to crash.
 [ ] Uplink
-    [/] Write socket code to use asyncore, or some other similar event based library.
-    [ ] Multiple uplink support
+    [X] Write socket code to use asyncore, or some other similar event based library.
+    [?] Multiple uplink support
     [?] SSL?
-    [ ] IPv6
-[X] Keep user data in a dict or sqlite database (:memory:?)
+    [?] IPv6
+[X] Keep user data in a dict or sqlite database (:memory:?) (DICT used.)
 [/] Easy to use/rich API
-[ ] Extremely modular base
+[X] Extremely modular base
     [X] Hooks?
     [X] Reloading modules through IRC
 [ ] Event system
@@ -18,10 +18,10 @@ X = done, ? = Needs discussion, / = in progress.
     [ ] Recurring
 [ ] Database backend
     [?] Open Services Exchange database format
-[ ] Account management
-    [ ] Accounts
-    [ ] Registration
-    [ ] Hashing of passwords.
+[/] Account management
+    [X] Accounts
+    [X] Registration
+    [X] Hashing of passwords.
     [ ] SASL
     [?] CertFP
 [ ] Channel management
