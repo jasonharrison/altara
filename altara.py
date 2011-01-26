@@ -389,11 +389,12 @@ class altara_socket(asynchat.async_chat):
 if __name__ == '__main__':
 	debugmode = 0
 	for arg in sys.argv:
-		if arg == "-d":
-			debugmode = 1
-			print "Starting Altara in debug mode."
-		else:
-			print "Unknown argument: "+arg+" - ignoring"
+		if " " not in arg:
+			if arg == "-d":
+				debugmode = 1
+				print "Starting Altara in debug mode."
+			else:
+				print "Unknown argument: "+arg+" - ignoring"
 	if config is None:
 		print "Please edit config.py.dist.  After you're done, rename it to config.py and try launching Altara services again."
 		exit()
