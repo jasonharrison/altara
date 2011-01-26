@@ -2,7 +2,7 @@
 #Note: before you do anything with this in production, DISABLE D-EXEC!
 
 
-import asynchat,asyncore,socket,time,re,os
+import asynchat,asyncore,socket,time,re,os,sys
 from time import sleep
 try:
 	import config
@@ -11,7 +11,7 @@ except ImportError:
 
 
 class altara_socket(asynchat.async_chat):
-	def __init__(self, (host, port)):
+	def __init__(self, (host, port, debugmode)):
 				asynchat.async_chat.__init__(self)
 				self.create_socket(socket.AF_INET,socket.SOCK_STREAM)
 				self.set_terminator('\r\n')
@@ -25,11 +25,11 @@ class altara_socket(asynchat.async_chat):
 				self.chanstore = {}
 				self.serverstore = {}
 				self.suid = 100000 #Will 000000 or 000001 work?
-				self.altaraversion = "Altara Services 1.10-git [TS6]"
+				self.altaraversion = "Altara Services 1.13-git [TS6]"
 				self.reportchan = config.reportchan
 				self.onloadmodules = config.onloadmodules
 				self.clientn = 0
-				self.debugmode = 0
+				self.debugmode = debugmode
 	def handle_connect(self):
 		#introduce server
 		self.sendLine("PASS "+str(config.linkpass)+" TS 6 "+str(config.sid))
@@ -80,7 +80,6 @@ class altara_socket(asynchat.async_chat):
 	
 	def clientJoin(self,client,channel):
 		self.sendLine(':'+client+' JOIN '+str(time.time())+' '+channel+' +')
-		self.chanmsg[channel] = {'lastmsg': [0,0,0,0]}
 		#self.sendLine("MODE "+channel+" +o "+client)
 	def clientPart(self,client,channel,reason):
 		self.sendLine(':'+client+' PART '+channel+' :'+reason)
@@ -162,6 +161,13 @@ class altara_socket(asynchat.async_chat):
 			SID = split[4]
 			serverdesc = ' '.join(split[5:]).strip(':')
 			self.serverstore[SID] = {"servername": servername, "SID": SID, "serverdesc": serverdesc, "users": []}
+		elif split[1] == "WHOIS": #Incoming WHOIS for a pseudo-client.
+			cuid = split[0].strip(":")
+			uid = split[2]
+			self.sendLine(":"+config.sid+" 311 "+cuid+" "+self.uidstore[uid]['nick']+" "+self.uidstore[uid]['user']+" "+self.uidstore[uid]['host']+" * :"+self.uidstore[uid]['gecos'])
+			self.sendLine(":"+config.sid+" 312 "+cuid+" "+self.uidstore[uid]['nick']+" "+config.servername+" :"+config.serverdescription)
+			self.sendLine(":"+config.sid+" 313 "+cuid+" "+self.uidstore[uid]['nick']+" :is a Network Service")
+			self.sendLine(":"+config.sid+" 318 "+cuid+" "+self.uidstore[uid]['nick']+" :End of WHOIS")
 		elif split[0] == "SQUIT": #NETSPLIT/NETJOIN handling is messed up. (chanstore)
 			try:
 				SID = split[1]
@@ -265,7 +271,6 @@ class altara_socket(asynchat.async_chat):
 		elif split[1] == "QUIT":
 			try:
 				uid = split[0].replace(":","")
-<<<<<<< HEAD
 				for modname,module in self.modules.items():
 					if hasattr(module, "onQuit"):
 						module.onQuit(self,uid)
@@ -273,7 +278,6 @@ class altara_socket(asynchat.async_chat):
 					self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
 					self.chanstore[channel]['uids'].remove(uid)
 				del self.uidstore[uid]
-<<<<<<< HEAD
 			except:
 				pass       
                 elif split[1] == "KILL":
@@ -282,12 +286,10 @@ class altara_socket(asynchat.async_chat):
                         for channel in self.uidstore[uid]['channels']:
                                 self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
                                 self.chanstore[channel]['uids'].remove(uid)
+			for modname,module in self.modules.items():
+				if hasattr(module, "onQuit"):
+					module.onQuit(self,uid)
                  except: pass
-=======
-				for modname,module in self.modules.items():
-					if hasattr(module, "onQuit"):
-						module.onQuit(self,uid)
-			except: pass
 		elif split[1] == "KILL":
 			try:   
 						uid = split[2]
@@ -295,7 +297,6 @@ class altara_socket(asynchat.async_chat):
 								self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
 								self.chanstore[channel]['uids'].remove(uid)
 			except: pass
->>>>>>> c9f9e9498a44f447c1768b354202949d387c1c2a
 			
 		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
 		elif split[1] == "NOTICE" and self.firstSync == 0:
@@ -386,10 +387,16 @@ class altara_socket(asynchat.async_chat):
 								if hasattr(module, "onRaw"): #Warning: don't EVER use this unless you're *SURE* there's not a hook for whatever you're doing.
 									module.onRaw(self,data,split)
 if __name__ == '__main__':
+	debugmode = 0
+	for arg in sys.argv:
+		if arg == "-d":
+			debugmode = 1
+			print "Starting Altara in debug mode."
+		else:
+			print "Unknown argument: "+arg+" - ignoring"
 	if config is None:
 		print "Please edit config.py.dist.  After you're done, rename it to config.py and try launching Altara services again."
 		exit()
 	print "Altara started.  PID: "+str(os.getpid())
-
-	altara_socket((config.networkIP, config.linkport))
+	altara_socket((config.networkIP, config.linkport, debugmode))
 	asyncore.loop()
