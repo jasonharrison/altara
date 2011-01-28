@@ -25,7 +25,7 @@ class altara_socket(asynchat.async_chat):
 				self.chanstore = {}
 				self.serverstore = {}
 				self.suid = 100000 #Will 000000 or 000001 work?
-				self.altaraversion = "Altara Services 1.14-git [TS6]"
+				self.altaraversion = "Altara Services 1.16-git [TS6]"
 				self.reportchan = config.reportchan
 				self.onloadmodules = config.onloadmodules
 				self.clientn = 0
@@ -191,32 +191,49 @@ class altara_socket(asynchat.async_chat):
 				uptime = datetime.timedelta(seconds=time.time())-datetime.timedelta(seconds=self.startts)
 				self.sendLine(":"+config.sid+" 242 "+uid+" :Services uptime: "+str(uptime))
 				self.sendLine(":"+config.sid+" 219 "+uid+" :End of /STATS report")
-		elif split[0] == "SQUIT": #NETSPLIT/NETJOIN handling is messed up. (chanstore)
-			try:
+		elif split[0] == "SQUIT":
+			#try:
 				SID = split[1]
 				for uid in self.serverstore[SID]['users']:
 					nick = self.uidstore[uid]['nick']
 					for channel in self.uidstore[uid]['channels']:
-						self.chanstore[channel]['nicks'].remove(nick)
-						self.chanstore[channel]['uids'].remove(uid)
+						print channel+" "+str(len(self.chanstore[channel]['uids']))
+						if len(self.chanstore[channel]['uids']) == 1: #Nobody left in the channel
+							del self.chanstore[channel]
+						else:
+							print "removing "+nick+" from "+channel
+							print "removing "+uid+" from "+channel
+							self.chanstore[channel]['nicks'].remove(nick)
+							self.chanstore[channel]['uids'].remove(uid)
 					del self.uidstore[uid]
 					del self.nickstore[nick]
 				del self.serverstore[SID]
-			except: pass
+			#except Exception, e:
+			#	print str(e)
 		elif split[1] == "SJOIN":
 			chandata = re.match("^:[A-Z0-9]{3} SJOIN (\d+) (#[^ ]*) (.*?) :(.*)$", data).groups()
 			channel = chandata[1]
 			uids = chandata[3]
-			self.chanstore[channel] = {'ts': chandata[0], 'modes': str(chandata[2]).strip("+"), 'uids': [], 'nicks': []}
-			for uid in uids.strip("+").strip("@").split(" "):
-				uidstrip = uid.replace("@","").replace("+","")
-				if uidstrip == '':
-					pass
-				else:
-					nick = self.uidstore[uidstrip]['nick']
-					self.uidstore[uidstrip]['channels'].append(channel)
-					self.chanstore[channel]['nicks'].append(nick)
-					self.chanstore[channel]['uids'].append(uid)
+			if self.chanstore.has_key(channel):
+				for uid in uids.strip("+").strip("@").split(" "):
+					uidstrip = uid.replace("@","").replace("+","")
+					if uidstrip == '':
+						pass
+					else:
+						nick = self.uidstore[uidstrip]['nick']
+						self.chanstore[channel]['nicks'].append(nick)
+						self.chanstore[channel]['uids'].append(uid)
+			else:
+				self.chanstore[channel] = {'ts': chandata[0], 'modes': str(chandata[2]).strip("+"), 'uids': [], 'nicks': []}
+				for uid in uids.strip("+").strip("@").split(" "):
+					uidstrip = uid.replace("@","").replace("+","")
+					if uidstrip == '':
+						pass
+					else:
+						nick = self.uidstore[uidstrip]['nick']
+						self.uidstore[uidstrip]['channels'].append(channel)
+						self.chanstore[channel]['nicks'].append(nick)
+						self.chanstore[channel]['uids'].append(uid)
 		elif split[1] == "ENCAP":
 			if split[3] == "OPER":
 				uid = split[0].replace(":","")
@@ -244,17 +261,18 @@ class altara_socket(asynchat.async_chat):
 						module.onJoin(self,uid,channel)
 			except: pass
 		elif split[1] == "PART":
-			try:
-				uid = split[0].replace(":","")
-				channel = split[2]
-				nick = self.uidstore[uid]['nick']
+			uid = split[0].replace(":","")
+			channel = split[2]
+			nick = self.uidstore[uid]['nick']
+			for modname,module in self.modules.items():
+				if hasattr(module, "onPart"):
+					module.onPart(self,uid,channel)
+			if len(self.chanstore[channel]['uids']) == 1: #Nobody left in the channel
+				del self.chanstore[channel]
+			else:
 				self.uidstore[uid]['channels'].remove(channel)
 				self.chanstore[channel]['nicks'].remove(nick)
 				self.chanstore[channel]['uids'].remove(uid)
-				for modname,module in self.modules.items():
-					if hasattr(module, "onPart"):
-						module.onPart(self,uid,channel)
-			except: pass
 		elif split[1] == "CHGHOST":
 			uid = split[2]
 			oldhost = self.uidstore[uid]['host']
@@ -391,7 +409,7 @@ class altara_socket(asynchat.async_chat):
 				else:# splitm[1].lower() == "off":
 					self.sendNotice(self.mainc,config.reportchan,""+self.uidstore[uid]['nick']+" debug:OFF")
 					self.debugmode=0
-			elif splitm[0].lower() == "d-exec" and host == "FOSSnet/staff/bikcmp": #Do *NOT* enable this on a production network.  Used for debugging ONLY.  
+			elif splitm[0].lower() == "d-exec":# and host == "FOSSnet/staff/bikcmp": #Do *NOT* enable this on a production network.  Used for debugging ONLY.  
 				try:
 					query = message.split('d-exec ')[1]
 					ret=str(eval(query))
@@ -411,7 +429,7 @@ class altara_socket(asynchat.async_chat):
 									module.onRaw(self,data,split)
 if __name__ == '__main__':
 	debugmode = 0
-	for arg in sys.argv:
+	for arg in sys.argv[1:]:
 		if " " not in arg:
 			if arg == "-d":
 				debugmode = 1
