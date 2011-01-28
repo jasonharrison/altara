@@ -2,7 +2,7 @@
 #Note: before you do anything with this in production, DISABLE D-EXEC!
 
 
-import asynchat,asyncore,socket,time,re,os,sys
+import asynchat,asyncore,socket,time,re,os,sys,datetime
 from time import sleep
 try:
 	import config
@@ -25,11 +25,12 @@ class altara_socket(asynchat.async_chat):
 				self.chanstore = {}
 				self.serverstore = {}
 				self.suid = 100000 #Will 000000 or 000001 work?
-				self.altaraversion = "Altara Services 1.13-git [TS6]"
+				self.altaraversion = "Altara Services 1.14-git [TS6]"
 				self.reportchan = config.reportchan
 				self.onloadmodules = config.onloadmodules
 				self.clientn = 0
 				self.debugmode = debugmode
+				self.startts = time.time()
 	def handle_connect(self):
 		#introduce server
 		self.sendLine("PASS "+str(config.linkpass)+" TS 6 "+str(config.sid))
@@ -168,6 +169,28 @@ class altara_socket(asynchat.async_chat):
 			self.sendLine(":"+config.sid+" 312 "+cuid+" "+self.uidstore[uid]['nick']+" "+config.servername+" :"+config.serverdescription)
 			self.sendLine(":"+config.sid+" 313 "+cuid+" "+self.uidstore[uid]['nick']+" :is a Network Service")
 			self.sendLine(":"+config.sid+" 318 "+cuid+" "+self.uidstore[uid]['nick']+" :End of WHOIS")
+		elif split[1] == "MOTD": #MOTD handling
+			if split[2].strip(":") == config.sid:
+				uid = split[0].strip(":")
+				self.sendLine(":"+config.sid+" 375 "+uid+" :- "+config.servername+" Message of the day -")
+				try:
+					f = open("motd.txt","r")
+					fread = f.read()
+					f.close()
+					freads = fread.split("\n")
+					for line in freads:
+						self.sendLine(":"+config.sid+" 372 "+uid+" :- "+line)
+					self.sendLine(":"+config.sid+" 376 "+uid+" :End of the Message of the Day.")
+				except:
+					self.sendLine(":"+config.sid+" 372 "+uid+" :- No Message of the Day found.")
+					self.sendLine(":"+config.sid+" 376 "+uid+" :End of the Message of the Day.")
+		elif split[1] == "STATS" and split[3].strip(":") == config.sid: #/stats handling.
+			uid = split[0].strip(":")
+			request = split[2]
+			if request == "u": #/stats u for uptime.
+				uptime = datetime.timedelta(seconds=time.time())-datetime.timedelta(seconds=self.startts)
+				self.sendLine(":"+config.sid+" 242 "+uid+" :Services uptime: "+str(uptime))
+				self.sendLine(":"+config.sid+" 219 "+uid+" :End of /STATS report")
 		elif split[0] == "SQUIT": #NETSPLIT/NETJOIN handling is messed up. (chanstore)
 			try:
 				SID = split[1]
