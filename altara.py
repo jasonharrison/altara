@@ -192,24 +192,19 @@ class altara_socket(asynchat.async_chat):
 				self.sendLine(":"+config.sid+" 242 "+uid+" :Services uptime: "+str(uptime))
 				self.sendLine(":"+config.sid+" 219 "+uid+" :End of /STATS report")
 		elif split[0] == "SQUIT":
-			#try:
-				SID = split[1]
-				for uid in self.serverstore[SID]['users']:
-					nick = self.uidstore[uid]['nick']
-					for channel in self.uidstore[uid]['channels']:
-						print channel+" "+str(len(self.chanstore[channel]['uids']))
-						if len(self.chanstore[channel]['uids']) == 1: #Nobody left in the channel
-							del self.chanstore[channel]
-						else:
-							print "removing "+nick+" from "+channel
-							print "removing "+uid+" from "+channel
-							self.chanstore[channel]['nicks'].remove(nick)
-							self.chanstore[channel]['uids'].remove(uid)
-					del self.uidstore[uid]
-					del self.nickstore[nick]
-				del self.serverstore[SID]
-			#except Exception, e:
-			#	print str(e)
+			SID = split[1]
+			for uid in self.serverstore[SID]['users']:
+				nick = self.uidstore[uid]['nick']
+				for channel in self.uidstore[uid]['channels']:
+					print channel+" "+str(len(self.chanstore[channel]['uids']))
+					if len(self.chanstore[channel]['uids']) == 1: #Nobody left in the channel
+						del self.chanstore[channel]
+					else:
+						self.chanstore[channel]['nicks'].remove(nick)
+						self.chanstore[channel]['uids'].remove(uid)
+				del self.uidstore[uid]
+				del self.nickstore[nick]
+			del self.serverstore[SID]
 		elif split[1] == "SJOIN":
 			chandata = re.match("^:[A-Z0-9]{3} SJOIN (\d+) (#[^ ]*) (.*?) :(.*)$", data).groups()
 			channel = chandata[1]
