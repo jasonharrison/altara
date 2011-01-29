@@ -256,6 +256,7 @@ class altara_socket(asynchat.async_chat):
 						module.onJoin(self,uid,channel)
 			except: pass
 		elif split[1] == "PART":
+                 try:
 			uid = split[0].replace(":","")
 			channel = split[2]
 			nick = self.uidstore[uid]['nick']
@@ -268,6 +269,7 @@ class altara_socket(asynchat.async_chat):
 				self.uidstore[uid]['channels'].remove(channel)
 				self.chanstore[channel]['nicks'].remove(nick)
 				self.chanstore[channel]['uids'].remove(uid)
+                 except: pass
 		elif split[1] == "CHGHOST":
 			uid = split[2]
 			oldhost = self.uidstore[uid]['host']
