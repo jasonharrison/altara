@@ -56,7 +56,7 @@ class altara_socket(asynchat.async_chat):
 	#START API
 	def sendLine(self,data):
 		if self.debugmode == 1:
-			print "Send: "+str(data)
+			print "{"+str(time.time())+"} Send: "+str(data)
 		self.push(data+'\r\n')
 	def report(self,sender,data):
 		self.sendPrivmsg(sender,self.reportchan,data)
@@ -116,7 +116,7 @@ class altara_socket(asynchat.async_chat):
 		data=self.get_data()
 		split = str(data).split(" ")
 		if self.debugmode == 1:
-			print "Recv: "+data
+			print "{"+str(time.time())+"} Recv: "+data
 		if split[0] == "PING":
 			self.sendLine("PONG "+split[1])
 			if self.firstSync == 1:
