@@ -78,7 +78,6 @@ class altara_socket(asynchat.async_chat):
 		for modname,module in self.modules.items():
 			if hasattr(module, "onChghost"):
 				module.onChghost(self,uid,oldhost,newhost)
-	
 	def clientJoin(self,client,channel):
 		self.sendLine(':'+client+' JOIN '+str(time.time())+' '+channel+' +')
 		#self.sendLine("MODE "+channel+" +o "+client)
@@ -126,7 +125,7 @@ class altara_socket(asynchat.async_chat):
 		elif split[1] == "EUID":
 			#Recv: :05K EUID jason 3 1292805989 +i ~jason nat/bikcmp.com/session 0 05KAAANCY * * :Jason
 			#Note: could use some cleanup here.
-			modes = split[5]
+			modes = split[5].strip("+").strip("-")
 			nick = split[2]
 			user = split[6]
 			host = split[7]
@@ -305,7 +304,18 @@ class altara_socket(asynchat.async_chat):
 				elif "-" in modes:
 					removedmode = modes.strip("-")
 					self.chanstore[target]['modes'] = self.chanstore[target]['modes'].strip(removedmode)
-				
+		elif split[1] == "MODE": #user modes
+			target = split[2]
+			uid = split[0].strip(":")
+			rmodes = split[3].strip(":")
+			modes = rmodes.strip("+").strip("-")
+			modetype = rmodes[0]
+			if modetype == "+":
+				self.uidstore[target]['modes'] = self.uidstore[target]['modes']+modes
+			if modetype == "-":
+				self.uidstore[target]['modes'] = self.uidstore[target]['modes'].strip(modes)
+				if "o" in modes:
+					self.uidstore[target]['oper'] = False
 		elif split[1] == "QUIT":
 			try:
 				uid = split[0].replace(":","")
@@ -427,7 +437,7 @@ class altara_socket(asynchat.async_chat):
 if __name__ == '__main__':
 	debugmode = 0
 	for arg in sys.argv[1:]:
-		if " " not in arg:
+		if " " not in arg and "python" not in arg and "altara.py" not in arg:
 			if arg == "-d":
 				debugmode = 1
 				print "Starting Altara in debug mode."
