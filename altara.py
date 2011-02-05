@@ -30,7 +30,6 @@ class altara_socket(asynchat.async_chat):
 				self.onloadmodules = config.onloadmodules
 				self.clientn = 0
 				self.debugmode = debugmode
-				self.startts = time.time()
 	def handle_connect(self):
 		#introduce server
 		self.sendLine("PASS "+str(config.linkpass)+" TS 6 "+str(config.sid))
@@ -44,6 +43,7 @@ class altara_socket(asynchat.async_chat):
 			for modtoload in self.onloadmodules.split(" "):
 				module = self.load("module_"+modtoload)
 				module.modinit(self)
+		self.startts = time.time() #Start actual sync.
 	def get_data(self):
 		r=self.data
 		self.data=''
@@ -191,11 +191,11 @@ class altara_socket(asynchat.async_chat):
 				self.sendLine(":"+config.sid+" 242 "+uid+" :Services uptime: "+str(uptime))
 				self.sendLine(":"+config.sid+" 219 "+uid+" :End of /STATS report")
 		elif split[0] == "SQUIT":
+		 try:
 			SID = split[1]
 			for uid in self.serverstore[SID]['users']:
 				nick = self.uidstore[uid]['nick']
 				for channel in self.uidstore[uid]['channels']:
-					print channel+" "+str(len(self.chanstore[channel]['uids']))
 					if len(self.chanstore[channel]['uids']) == 1: #Nobody left in the channel
 						del self.chanstore[channel]
 					else:
@@ -204,6 +204,8 @@ class altara_socket(asynchat.async_chat):
 				del self.uidstore[uid]
 				del self.nickstore[nick]
 			del self.serverstore[SID]
+		 except Exception,e:
+			 self.report(self.rayc,"SQUIT "+SID+" failed: "+str(e))
 		elif split[1] == "SJOIN":
 			chandata = re.match("^:[A-Z0-9]{3} SJOIN (\d+) (#[^ ]*) (.*?) :(.*)$", data).groups()
 			channel = chandata[1]
