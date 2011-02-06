@@ -205,7 +205,7 @@ class altara_socket(asynchat.async_chat):
 				del self.nickstore[nick]
 			del self.serverstore[SID]
 		 except Exception,e:
-			 self.report(self.rayc,"SQUIT "+SID+" failed: "+str(e))
+			 self.report(self.mainc,"SQUIT "+SID+" failed: "+str(e))
 		elif split[1] == "SJOIN":
 			chandata = re.match("^:[A-Z0-9]{3} SJOIN (\d+) (#[^ ]*) (.*?) :(.*)$", data).groups()
 			channel = chandata[1]
