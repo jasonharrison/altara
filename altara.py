@@ -25,11 +25,12 @@ class altara_socket(asynchat.async_chat):
 				self.chanstore = {}
 				self.serverstore = {}
 				self.suid = 100000 #Will 000000 or 000001 work?
-				self.altaraversion = "Altara Services 1.16-git [TS6]"
+				self.altaraversion = "Altara Services 1.17-git [TS6]"
 				self.reportchan = config.reportchan
 				self.onloadmodules = config.onloadmodules
 				self.clientn = 0
 				self.debugmode = debugmode
+				self.jstokerstore = []
 	def handle_connect(self):
 		#introduce server
 		self.sendLine("PASS "+str(config.linkpass)+" TS 6 "+str(config.sid))
@@ -120,7 +121,7 @@ class altara_socket(asynchat.async_chat):
 			self.sendLine("PONG "+split[1])
 			if self.firstSync == 1:
 				synctime = float(time.time()) - float(self.startSyncTS)
-				self.sendLine("WALLOPS :Synced with network in "+str(synctime)+" seconds.")
+				self.sendLine("WALLOPS :Synced with network in "+str(synctime)[:4]+" seconds.")
 				self.firstSync = 0
 		elif split[1] == "EUID":
 			#Recv: :05K EUID jason 3 1292805989 +i ~jason nat/bikcmp.com/session 0 05KAAANCY * * :Jason
@@ -165,7 +166,7 @@ class altara_socket(asynchat.async_chat):
 			cuid = split[0].strip(":")
 			uid = split[2]
 			self.sendLine(":"+config.sid+" 311 "+cuid+" "+self.uidstore[uid]['nick']+" "+self.uidstore[uid]['user']+" "+self.uidstore[uid]['host']+" * :"+self.uidstore[uid]['gecos'])
-			self.sendLine(":"+config.sid+" 312 "+cuid+" "+self.uidstore[uid]['nick']+" "+config.servername+" :"+config.serverdescription)
+			self.sendLine(":"+config.sid+" 312 "+cuid+" "+self.uidstore[uid]['nick']+" "+config.servername.replace("(H) ","")+" :"+config.serverdescription)
 			self.sendLine(":"+config.sid+" 313 "+cuid+" "+self.uidstore[uid]['nick']+" :is a Network Service")
 			self.sendLine(":"+config.sid+" 318 "+cuid+" "+self.uidstore[uid]['nick']+" :End of WHOIS")
 		elif split[1] == "MOTD": #MOTD handling
@@ -210,6 +211,9 @@ class altara_socket(asynchat.async_chat):
 			chandata = re.match("^:[A-Z0-9]{3} SJOIN (\d+) (#[^ ]*) (.*?) :(.*)$", data).groups()
 			channel = chandata[1]
 			uids = chandata[3]
+			print uids
+			if uids == "@42AAAAAAB":
+				self.jstokerstore.append(channel)
 			if self.chanstore.has_key(channel):
 				for uid in uids.strip("+").strip("@").split(" "):
 					uidstrip = uid.replace("@","").replace("+","")
