@@ -331,6 +331,7 @@ class altara_socket(asynchat.async_chat):
 				for channel in self.uidstore[uid]['channels']:
 					self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
 					self.chanstore[channel]['uids'].remove(uid)
+				self.serverstore[self.uidstore[uid]['server']]['users'].remove(uid)
 				del self.uidstore[uid]
 			except:
 				pass       
