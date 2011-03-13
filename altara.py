@@ -90,6 +90,8 @@ class altara_socket(asynchat.async_chat):
 		cuser = self.uidstore[client]['user']
 		cnick = self.uidstore[client]['nick']
 		self.sendLine(":"+client+" KILL "+killee+" :"+cserver+"!"+chost+"!"+cuser+"!"+cnick+" ("+reason+")") #needs work.
+		del self.userstore[killee]
+		
 	def createClient(self,cnick,cuser,chost,cgecos):
 		self.suid+=1
 		cuid = str(config.sid)+str(self.suid)
@@ -332,6 +334,7 @@ class altara_socket(asynchat.async_chat):
 					self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
 					self.chanstore[channel]['uids'].remove(uid)
 				self.serverstore[self.uidstore[uid]['server']]['users'].remove(uid)
+				del self.nickstore[self.uidstore[uid]['nick']]
 				del self.uidstore[uid]
 			except:
 				pass       
@@ -341,18 +344,17 @@ class altara_socket(asynchat.async_chat):
                         for channel in self.uidstore[uid]['channels']:
                                 self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
                                 self.chanstore[channel]['uids'].remove(uid)
+			#self.serverstore[self.uidstore[uid]['server']]['users'].remove(uid)
+			#del self.nickstore[self.uidstore[uid]['nick']]
+			#del self.uidstore[uid]
 			for modname,module in self.modules.items():
 				if hasattr(module, "onQuit"):
 					module.onQuit(self,uid)
-                 except: pass
-		elif split[1] == "KILL":
-			try:   
-						uid = split[2]
-						for channel in self.uidstore[uid]['channels']:
-								self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
-								self.chanstore[channel]['uids'].remove(uid)
-			except: pass
-			
+			self.serverstore[self.uidstore[uid]['server']]['users'].remove(uid)
+			del self.nickstore[self.uidstore[uid]['nick']]
+			del self.uidstore[uid]
+
+                 except: pass			
 		#:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
 		elif split[1] == "NOTICE" and self.firstSync == 0:
 				target = split[2]
