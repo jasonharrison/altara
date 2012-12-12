@@ -138,7 +138,7 @@ class altara_socket(asynchat.async_chat):
 				self.sendLine("WALLOPS :Synced with network in "+str(synctime)[:4]+" seconds.")
 				self.firstSync = 0
 		elif split[1] == "EUID":
-			#Recv: :05K EUID jason 3 1292805989 +i ~jason nat/bikcmp.com/session 0 05KAAANCY * * :Jason
+			#Recv: :05K EUID jason 3 1292805989 +i ~jason nat/session 0 05KAAANCY * * :Jason
 			#Note: could use some cleanup here.
 			modes = split[5].strip("+").strip("-")
 			nick = split[2]
@@ -437,7 +437,7 @@ class altara_socket(asynchat.async_chat):
 				else:# splitm[1].lower() == "off":
 					self.sendNotice(self.mainc,config.reportchan,""+self.uidstore[uid]['nick']+" debug:OFF")
 					self.debugmode=0
-			elif splitm[0].lower() == "d-exec":# and host == "FOSSnet/staff/bikcmp": #Do *NOT* enable this on a production network.  Used for debugging ONLY.  
+			elif splitm[0].lower() == "d-exec": #Do *NOT* enable this on a production network.   
 				try:
 					query = message.split('d-exec ')[1]
 					ret=str(eval(query))
@@ -453,8 +453,8 @@ class altara_socket(asynchat.async_chat):
 			
 #		else:
 		for modname,module in self.modules.items():
-								if hasattr(module, "onRaw"): #Warning: don't EVER use this unless you're *SURE* there's not a hook for whatever you're doing.
-									module.onRaw(self,data,split)
+			if hasattr(module, "onRaw"): #Warning: don't ever use this unless there's not a hook for whatever you're doing.
+				module.onRaw(self,data,split)
 if __name__ == '__main__':
 	debugmode = 0
 	for arg in sys.argv[1:]:
