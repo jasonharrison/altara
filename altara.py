@@ -3,16 +3,13 @@
 # ~ Copyright (C) 2011  Jason H. and contributors.
 # ~ This program is free software: you can redistribute it and/or modify
 # ~ it under the terms of the GNU Affero General Public License as
-# ~ published by the Free Software Foundation, either version 3 of the
-# ~ License, or (at your option) any later version.
+# ~ published by the Free Software Foundation, version 3.
 # ~ This program is distributed in the hope that it will be useful,
 # ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
 # ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # ~ GNU Affero General Public License for more details.
 # ~ You should have received a copy of the GNU Affero General Public License
 # ~ along with this program.  If not, see <http://www.gnu.org/licenses/>.
-# Note: before you do anything with this in production, DISABLE D-EXEC!
-
 
 import asynchat, asyncore, socket, time, re, os, sys, datetime
 from time import sleep
@@ -116,21 +113,8 @@ class altara_socket(asynchat.async_chat):
         cnick = self.uidstore[client]['nick']
         self.sendLine(
             ":" + client + " KILL " + killee + " :" + cserver + "!" + chost + "!" + cuser + "!" + cnick + " (" + reason + ")")  # needs work.
-        uid = client
-        try:
-            for modname, module in self.modules.items():
-                if hasattr(module, "onQuit"):
-                    module.onQuit(self, uid)
-            for channel in self.uidstore[uid]['channels']:
-                self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
-                self.chanstore[channel]['uids'].remove(uid)
-            self.serverstore[self.uidstore[uid]['server']]['users'].remove(uid)
-            del self.nickstore[self.uidstore[uid]['nick']]
-            del self.uidstore[uid]
-        except:
-            pass
-# del self.userstore[killee]
-    
+        self.handleQuit(killee)
+
     
     def createClient(self, cnick, cuser, chost, cgecos):
         self.suid += 1
@@ -171,7 +155,26 @@ class altara_socket(asynchat.async_chat):
         self.sendNotice(self.mainc, "#xanos", "adjustPoints: TARGET=" + uid + " VALUE=" + str(value))
         self.uidstore[uid]['points'] = self.uidstore[uid]['points'] + value
         return self.uidstore[uid]['points']
-    
+        
+    def handleQuit(self, uid):
+        #try:
+            for modname, module in self.modules.items():
+                if hasattr(module, "onQuit"):
+                    module.onQuit(self, uid)
+            print self.uidstore[uid]['channels']
+            for channel in self.uidstore[uid]['channels']:
+                print self.chanstore[channel]
+                self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
+                self.chanstore[channel]['uids'].remove(uid)
+            try:
+                self.serverstore[self.uidstore[uid]['server']]['users'].remove(uid)
+            except Exception, e: 
+                self.sendLine("NOTICE " + self.reportchan + " :handleQuit ERROR: UNABLE TO REMOVE "+str(uid)+" from serverstore / exception: " + str(e))
+            del self.nickstore[self.uidstore[uid]['nick']]
+            del self.uidstore[uid]
+        #except Exception, e:
+        #    self.sendLine("NOTICE " + self.reportchan + " :handleQuit ERROR: UNABLE TO REMOVE "+str(uid)+" / exception: " + str(e))
+            
     
     # if self.uidstore[uid]['points'] - value < 0: 
     
@@ -335,21 +338,18 @@ class altara_socket(asynchat.async_chat):
             except:
                 pass
         elif split[1] == "PART":
-            try:
-                uid = split[0].replace(":", "")
-                channel = split[2]
-                nick = self.uidstore[uid]['nick']
-                for modname, module in self.modules.items():
-                    if hasattr(module, "onPart"):
-                        module.onPart(self, uid, channel)
-                if len(self.chanstore[channel]['uids']) == 1:  # Nobody left in the channel
-                    del self.chanstore[channel]
-                else:
-                    self.uidstore[uid]['channels'].remove(channel)
-                    self.chanstore[channel]['nicks'].remove(nick)
-                    self.chanstore[channel]['uids'].remove(uid)
-            except:
-                pass
+            uid = split[0].replace(":", "")
+            channel = split[2]
+            nick = self.uidstore[uid]['nick']
+            for modname, module in self.modules.items():
+                if hasattr(module, "onPart"):
+                    module.onPart(self, uid, channel)
+            if len(self.chanstore[channel]['uids']) == 1:  # Nobody left in the channel
+                del self.chanstore[channel]
+            else:
+                self.chanstore[channel]['nicks'].remove(nick)
+                self.chanstore[channel]['uids'].remove(uid)
+            self.uidstore[uid]['channels'].remove(channel)
         elif split[1] == "CHGHOST":
             uid = split[2]
             oldhost = self.uidstore[uid]['host']
@@ -399,33 +399,13 @@ class altara_socket(asynchat.async_chat):
                 if "o" in modes:
                     self.uidstore[target]['oper'] = False
         elif split[1] == "QUIT":
-            try:
-                uid = split[0].replace(":", "")
-                for modname, module in self.modules.items():
-                    if hasattr(module, "onQuit"):
-                        module.onQuit(self, uid)
-                for channel in self.uidstore[uid]['channels']:
-                    self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
-                    self.chanstore[channel]['uids'].remove(uid)
-                self.serverstore[self.uidstore[uid]['server']]['users'].remove(uid)
-                del self.nickstore[self.uidstore[uid]['nick']]
-                del self.uidstore[uid]
-            except:
-                pass
+            uid = split[0].replace(":", "")
+            self.handleQuit(uid)
         
         elif split[1] == "KILL":
-            try:
-                for modname, module in self.modules.items():
-                    if hasattr(module, "onQuit"):
-                        module.onQuit(self, uid)
-                for channel in self.uidstore[uid]['channels']:
-                    self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
-                    self.chanstore[channel]['uids'].remove(uid)
-                self.serverstore[self.uidstore[uid]['server']]['users'].remove(uid)
-                del self.nickstore[self.uidstore[uid]['nick']]
-                del self.uidstore[uid]
-            except:
-                pass  #:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
+            uid=split[2]
+            self.handleQuit(uid)
+        
         elif split[1] == "NOTICE" and self.firstSync == 0:
             target = split[2]
             message = data.split("NOTICE " + target + " :")[1]
