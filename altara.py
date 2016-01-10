@@ -3,13 +3,16 @@
 # ~ Copyright (C) 2011  Jason H. and contributors.
 # ~ This program is free software: you can redistribute it and/or modify
 # ~ it under the terms of the GNU Affero General Public License as
-# ~ published by the Free Software Foundation, version 3.
+# ~ published by the Free Software Foundation, either version 3 of the
+# ~ License, or (at your option) any later version.
 # ~ This program is distributed in the hope that it will be useful,
 # ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
 # ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # ~ GNU Affero General Public License for more details.
 # ~ You should have received a copy of the GNU Affero General Public License
 # ~ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# Note: before you do anything with this in production, DISABLE D-EXEC!
+
 
 import asynchat, asyncore, socket, time, re, os, sys, datetime
 from time import sleep
@@ -161,17 +164,21 @@ class altara_socket(asynchat.async_chat):
             for modname, module in self.modules.items():
                 if hasattr(module, "onQuit"):
                     module.onQuit(self, uid)
-            print self.uidstore[uid]['channels']
+            print 'handlequit uidstore[uid][channels] is ', self.uidstore[uid]['channels']
             for channel in self.uidstore[uid]['channels']:
-                print self.chanstore[channel]
-                self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
-                self.chanstore[channel]['uids'].remove(uid)
+                print 'self.chanstore[channel] is ', self.chanstore[channel]
+                if len(self.chanstore[channel]['uids']) <= 1:
+                    del self.chanstore[channel]
+                else:
+                    self.chanstore[channel]['nicks'].remove(self.uidstore[uid]['nick'])
+                    self.chanstore[channel]['uids'].remove(uid)
             try:
                 self.serverstore[self.uidstore[uid]['server']]['users'].remove(uid)
             except Exception, e: 
                 self.sendLine("NOTICE " + self.reportchan + " :handleQuit ERROR: UNABLE TO REMOVE "+str(uid)+" from serverstore / exception: " + str(e))
             del self.nickstore[self.uidstore[uid]['nick']]
             del self.uidstore[uid]
+            print 'HANDLEQUIT DELETED ', uid
         #except Exception, e:
         #    self.sendLine("NOTICE " + self.reportchan + " :handleQuit ERROR: UNABLE TO REMOVE "+str(uid)+" / exception: " + str(e))
             
@@ -325,31 +332,30 @@ class altara_socket(asynchat.async_chat):
                 except:
                     pass
         elif split[1] == "JOIN":
-            try:
-                uid = split[0].replace(":", "")
-                channel = split[3]
-                nick = self.uidstore[uid]['nick']
-                self.uidstore[uid]['channels'].append(channel)
-                self.chanstore[channel]['nicks'].append(nick)
-                self.chanstore[channel]['uids'].append(uid)
-                for modname, module in self.modules.items():
-                    if hasattr(module, "onJoin"):
-                        module.onJoin(self, uid, channel)
-            except:
-                pass
+            uid = split[0].replace(":", "")
+            channel = split[3]
+            nick = self.uidstore[uid]['nick']
+            self.uidstore[uid]['channels'].append(channel)
+            self.chanstore[channel]['nicks'].append(nick)
+            self.chanstore[channel]['uids'].append(uid)
+            for modname, module in self.modules.items():
+                if hasattr(module, "onJoin"):
+                    module.onJoin(self, uid, channel)
         elif split[1] == "PART":
             uid = split[0].replace(":", "")
             channel = split[2]
             nick = self.uidstore[uid]['nick']
-            for modname, module in self.modules.items():
-                if hasattr(module, "onPart"):
-                    module.onPart(self, uid, channel)
-            if len(self.chanstore[channel]['uids']) == 1:  # Nobody left in the channel
+            print "REMOVING "+nick+" uid "+uid+" from "+channel
+            if len(self.chanstore[channel]['uids']) <= 1:  # Nobody left in the channel
                 del self.chanstore[channel]
             else:
+                print "CHANSTORE = "+str(self.chanstore[channel])
                 self.chanstore[channel]['nicks'].remove(nick)
                 self.chanstore[channel]['uids'].remove(uid)
             self.uidstore[uid]['channels'].remove(channel)
+            for modname, module in self.modules.items():
+                if hasattr(module, "onPart"):
+                    module.onPart(self, uid, channel)
         elif split[1] == "CHGHOST":
             uid = split[2]
             oldhost = self.uidstore[uid]['host']
