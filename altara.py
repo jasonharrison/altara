@@ -89,7 +89,7 @@ class altara_socket(asynchat.async_chat):
 
     def AccountLogout(self, uid):
         self.sendLine(':' + config.sid + ' ENCAP * SU :' + uid)
-        self.uidstore[uid]['account'] = 'None'
+        self.uidstore[uid]['account'] = None
         for modname, module in self.modules.items():
             if hasattr(module, "onLogin"):
                 module.onLogin(self, uid, oldhost, newhost)
@@ -125,7 +125,7 @@ class altara_socket(asynchat.async_chat):
         #:SID EUID nickname, hopcount, nickTS, umodes, username, visible hostname, IP address, UID, real hostname, account name, gecos
         self.sendLine(':' + str(config.sid) + ' EUID ' + cnick + ' 0 ' + str(
             time.time()) + ' +ioS ' + cuser + ' ' + chost + ' 0.0.0.0 ' + cuid + ' 0.0.0.0 0 :' + cgecos)
-        self.uidstore[cuid] = {'nick': cnick, 'user': cuser, 'host': chost, 'realhost': chost, 'account': "None",
+        self.uidstore[cuid] = {'nick': cnick, 'user': cuser, 'host': chost, 'realhost': chost, 'account': None,
                                'oper': True, 'modes': "+iSo", 'channels': [], 'gecos': cgecos}
         self.clientJoin(cuid, self.reportchan)
         self.sendLine("MODE " + config.reportchan + " +o " + cuid)
@@ -214,17 +214,17 @@ class altara_socket(asynchat.async_chat):
             uid = split[9]
             account = split[11]
             if account == "*":
-                account = "None"
+                account = None
             self.nickstore[nick] = {'uid': uid}
             initialpointsvalue = 20
             if "o" in modes:
                 self.uidstore[uid] = {'points': initialpointsvalue, 'nick': nick, 'user': user, 'host': host,
                                       'realhost': realhost, 'account': account, 'oper': True, 'modes': modes,
-                                      'channels': [], 'gecos': gecos, 'ip': ip, 'server': server}
+                                      'channels': [], 'gecos': gecos, 'ip': ip, 'server': server, 'ts': time.time()}
             else:
                 self.uidstore[uid] = {'points': initialpointsvalue, 'nick': nick, 'user': user, 'host': host,
                                       'realhost': realhost, 'account': account, 'oper': False, 'modes': modes,
-                                      'channels': [], 'gecos': gecos, 'ip': ip, 'server': server}
+                                      'channels': [], 'gecos': gecos, 'ip': ip, 'server': server, 'ts': time.time()}
             self.serverstore[server]['users'].append(uid)
             for modname, module in self.modules.items():
                 if hasattr(module, "onConnect"):
@@ -303,6 +303,9 @@ class altara_socket(asynchat.async_chat):
                         nick = self.uidstore[uidstrip]['nick']
                         self.chanstore[channel]['nicks'].append(nick)
                         self.chanstore[channel]['uids'].append(uid)
+                    for modname, module in self.modules.items():
+                        if hasattr(module, "onJoin"):
+                            module.onJoin(self, uid, channel)
             else:
                 self.chanstore[channel] = {'ts': chandata[0], 'modes': str(chandata[2]).strip("+"), 'uids': [], 'nicks': []}
                 for uid in uids.strip("+").strip("@").split(" "):
@@ -314,9 +317,9 @@ class altara_socket(asynchat.async_chat):
                         self.uidstore[uidstrip]['channels'].append(channel)
                         self.chanstore[channel]['nicks'].append(nick)
                         self.chanstore[channel]['uids'].append(uid)
-            for modname, module in self.modules.items():
-                if hasattr(module, "onJoin"):
-                    module.onJoin(self, uid, channel)
+                    for modname, module in self.modules.items():
+                        if hasattr(module, "onJoin"):
+                            module.onJoin(self, uid, channel)
         elif split[1] == "ENCAP":
             if split[3] == "OPER":
                 uid = split[0].replace(":", "")
