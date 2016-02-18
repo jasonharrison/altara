@@ -155,7 +155,6 @@ class altara_socket(asynchat.async_chat):
     
     
     def adjustPoints(self, uid, value):
-        self.sendNotice(self.mainc, "#xanos", "adjustPoints: TARGET=" + uid + " VALUE=" + str(value))
         self.uidstore[uid]['points'] = self.uidstore[uid]['points'] + value
         return self.uidstore[uid]['points']
         
